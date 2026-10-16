@@ -1,11 +1,9 @@
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { AppModule, ObserveInstrument } from "./app.module.js";
+import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule, {
-		instrument: ObserveInstrument,
-	});
+	const app = await NestFactory.create(AppModule);
 	app.setGlobalPrefix("api");
 
 	const swaggerConfig = new DocumentBuilder()
