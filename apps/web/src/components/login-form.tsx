@@ -157,9 +157,9 @@ export function LoginForm({
 					</form>
 					<div className="relative hidden bg-muted md:block">
 						<img
-							src="/placeholder.svg"
+							src="/login-panel.svg"
 							alt=""
-							className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+							className="absolute inset-0 h-full w-full object-cover"
 						/>
 					</div>
 				</CardContent>
