@@ -141,7 +141,7 @@ describe("LoginContainer", () => {
 			render(<LoginContainer />);
 
 			await userEvent.click(
-				screen.getByRole("button", { name: "Continue with Google" }),
+				screen.getByRole("button", { name: "Login with Google" }),
 			);
 
 			expect(authClient.signIn.social).toHaveBeenCalledWith({
@@ -159,7 +159,7 @@ describe("LoginContainer", () => {
 			render(<LoginContainer />);
 
 			await userEvent.click(
-				screen.getByRole("button", { name: "Continue with Google" }),
+				screen.getByRole("button", { name: "Login with Google" }),
 			);
 
 			expect(
