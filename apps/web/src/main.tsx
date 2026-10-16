@@ -5,11 +5,11 @@ import { createRoot } from "react-dom/client";
 
 import "@workspace/ui/globals.css";
 import { ThemeProvider } from "@/components/theme-provider.tsx";
-import { initDatadogRum } from "@/lib/datadog";
+import { initGrafanaFaro } from "@/lib/grafana-faro";
 import { initSentry } from "@/lib/sentry";
 import { router } from "./router";
 
-initDatadogRum();
+initGrafanaFaro();
 initSentry();
 
 const queryClient = new QueryClient();
