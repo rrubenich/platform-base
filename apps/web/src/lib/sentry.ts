@@ -10,7 +10,12 @@ export function initSentry() {
 	Sentry.init({
 		dsn,
 		environment: import.meta.env.MODE,
-		integrations: [Sentry.browserTracingIntegration()],
+		integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
+		// Tracing
 		tracesSampleRate: 1.0,
+		tracePropagationTargets: [/\/api/],
+		// Session Replay
+		replaysSessionSampleRate: 0.1,
+		replaysOnErrorSampleRate: 1.0,
 	});
 }
