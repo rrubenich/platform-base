@@ -10,9 +10,7 @@ export const REDIS_CONNECTION = Symbol("REDIS_CONNECTION");
 			provide: REDIS_CONNECTION,
 			inject: [ConfigService],
 			useFactory: (configService: ConfigService) =>
-				new Redis(
-					configService.get<string>("REDIS_URL", "redis://localhost:6379"),
-				),
+				new Redis(configService.getOrThrow<string>("REDIS_URL")),
 		},
 	],
 	exports: [REDIS_CONNECTION],
