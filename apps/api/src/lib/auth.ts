@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, magicLink, organization } from "better-auth/plugins";
+import { admin, magicLink, openAPI, organization } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { Resend } from "resend";
@@ -67,6 +67,7 @@ const authOptions: BetterAuthOptions = {
 		}),
 		organization(),
 		admin(),
+		openAPI(),
 	],
 };
 
