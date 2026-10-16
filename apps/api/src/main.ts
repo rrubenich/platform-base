@@ -10,6 +10,13 @@ async function bootstrap() {
 	// body parser is disabled and re-enabled (via express.json()) only after
 	// the auth handler is mounted.
 	const app = await NestFactory.create(AppModule, { bodyParser: false });
+	// The web app is served from a different origin, and Sentry/Faro tag
+	// cross-origin requests with trace-propagation headers that force a CORS
+	// preflight, so every route (not just Better Auth's own) needs CORS.
+	app.enableCors({
+		origin: process.env.WEB_URL ?? "http://localhost:5173",
+		credentials: true,
+	});
 	app.use("/api/auth/*splat", toNodeHandler(auth));
 	app.use(json());
 
