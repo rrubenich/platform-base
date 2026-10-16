@@ -13,10 +13,7 @@ export const DATABASE_CONNECTION = Symbol("DATABASE_CONNECTION");
 			inject: [ConfigService],
 			useFactory: (configService: ConfigService) => {
 				const pool = new Pool({
-					connectionString: configService.get<string>(
-						"DATABASE_URL",
-						"postgres://platform-base:platform-base@localhost:5432/platform-base",
-					),
+					connectionString: configService.getOrThrow<string>("DATABASE_URL"),
 				});
 				return drizzle(pool, { schema });
 			},
