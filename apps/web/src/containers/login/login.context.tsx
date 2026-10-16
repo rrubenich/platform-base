@@ -1,7 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
+import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext, useState } from "react";
-import { authClient } from "@/lib/auth-client";
 import type { LoginMode } from "@/components/login-form";
+import { authClient } from "@/lib/auth-client";
+import { authErrorMessage } from "@/lib/auth-error";
 
 type LoginContextValue = {
 	mode: LoginMode;
@@ -45,7 +47,7 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(signInError.message ?? "Could not sign in. Please try again.");
+			setError(authErrorMessage(signInError, m.login_error_password()));
 			return;
 		}
 
@@ -65,10 +67,7 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(
-				signInError.message ??
-					"Could not send the magic link. Please try again.",
-			);
+			setError(authErrorMessage(signInError, m.login_error_magic_link()));
 			return;
 		}
 
@@ -87,10 +86,7 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(
-				signInError.message ??
-					"Could not sign in with Google. Please try again.",
-			);
+			setError(authErrorMessage(signInError, m.login_error_google()));
 		}
 	}
 

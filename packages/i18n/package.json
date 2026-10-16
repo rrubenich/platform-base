@@ -1,0 +1,32 @@
+{
+	"name": "@workspace/i18n",
+	"version": "0.0.0",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"build": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide",
+		"dev": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --watch",
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@inlang/paraglide-js": "2.29.0",
+		"typescript": "~6.0.2",
+		"vitest": "^4.1.2"
+	},
+	"exports": {
+		"./messages": {
+			"types": "./src/paraglide/messages.d.ts",
+			"default": "./src/paraglide/messages.js"
+		},
+		"./runtime": {
+			"types": "./src/paraglide/runtime.d.ts",
+			"default": "./src/paraglide/runtime.js"
+		},
+		"./negotiate": {
+			"types": "./src/negotiate.d.ts",
+			"default": "./src/negotiate.js"
+		}
+	}
+}

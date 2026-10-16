@@ -5,7 +5,7 @@
 		"build": {
 			"dependsOn": ["^build"],
 			"inputs": ["$TURBO_DEFAULT$", ".env*"],
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**", "src/paraglide/**"]
 		},
 		"lint": {
 			"dependsOn": ["^lint"]
@@ -14,14 +14,15 @@
 			"dependsOn": ["^format"]
 		},
 		"test": {
-			"dependsOn": ["^test"]
+			"dependsOn": ["^build", "^test"]
 		},
 		"typecheck": {
 			"dependsOn": ["^typecheck", "build"]
 		},
 		"dev": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"dependsOn": ["^build"]
 		}
 	}
 }

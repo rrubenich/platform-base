@@ -1,5 +1,7 @@
+import { getLocale } from "@workspace/i18n/runtime";
 import {
 	adminClient,
+	inferAdditionalFields,
 	magicLinkClient,
 	organizationClient,
 } from "better-auth/client/plugins";
@@ -19,7 +21,18 @@ const authBaseURL = new URL(
 
 export const authClient = createAuthClient({
 	baseURL: authBaseURL,
-	plugins: [organizationClient(), adminClient(), magicLinkClient()],
+	// The API translates errors and emails from Accept-Language when the user
+	// has no stored locale yet, so send the app's locale rather than the
+	// browser default. Changing locale reloads the page, so this stays fresh.
+	fetchOptions: { headers: { "Accept-Language": getLocale() } },
+	plugins: [
+		organizationClient(),
+		adminClient(),
+		magicLinkClient(),
+		inferAdditionalFields({
+			user: { locale: { type: "string", required: false } },
+		}),
+	],
 });
 
 export const { signIn, signUp, signOut, useSession } = authClient;

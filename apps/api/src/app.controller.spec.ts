@@ -15,8 +15,17 @@ describe("AppController", () => {
 	});
 
 	describe("root", () => {
-		it('should return "Hello World!"', () => {
-			expect(appController.getHello()).toBe("Hello World!");
+		it("answers in the Accept-Language locale", () => {
+			expect(appController.getHello({ "accept-language": "en-US" })).toBe(
+				"Hello World!",
+			);
+			expect(appController.getHello({ "accept-language": "pt-PT" })).toBe(
+				"Olá, mundo!",
+			);
+		});
+
+		it("falls back to pt-BR", () => {
+			expect(appController.getHello({})).toBe("Olá, mundo!");
 		});
 	});
 });

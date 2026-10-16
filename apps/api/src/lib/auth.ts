@@ -1,11 +1,20 @@
-import { betterAuth } from "better-auth";
+import { i18n } from "@better-auth/i18n";
+import { m } from "@workspace/i18n/messages";
+import { baseLocale } from "@workspace/i18n/runtime";
 import type { BetterAuthOptions } from "better-auth";
+import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, magicLink, openAPI, organization } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { Resend } from "resend";
 import * as schema from "../database/schema.js";
+import {
+	authErrorTranslations,
+	isLocale,
+	requestLocale,
+	userLocale,
+} from "../i18n/i18n.js";
 
 // Standalone pool/db instance (mirrors database/migrate.ts) so this config
 // file can be loaded directly by the `better-auth` CLI and by main.ts alike,
@@ -37,30 +46,58 @@ async function sendEmail(options: {
 	}
 }
 
+// Standard Schema validator for `user.locale`, so clients can't store a
+// locale the messages don't have.
+const localeValidator = {
+	"~standard": {
+		version: 1 as const,
+		vendor: "platform-base",
+		validate: (value: unknown) =>
+			value == null || isLocale(value)
+				? { value }
+				: { issues: [{ message: `Unsupported locale: ${String(value)}` }] },
+	},
+};
+
 const authOptions: BetterAuthOptions = {
 	database: drizzleAdapter(db, { provider: "pg" }),
 	baseURL: process.env.BETTER_AUTH_URL,
 	secret: process.env.BETTER_AUTH_SECRET,
 	trustedOrigins: [process.env.WEB_URL ?? "http://localhost:5173"],
+	user: {
+		additionalFields: {
+			// The user's preferred locale; source of truth for emails and
+			// translated errors. Set by apps/web (sign-up, language switch).
+			// Null until then, e.g. right after a Google or magic-link sign-up.
+			locale: {
+				type: "string",
+				required: false,
+				input: true,
+				validator: { input: localeValidator },
+			},
+		},
+	},
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
-		sendResetPassword: async ({ user, url }) => {
+		sendResetPassword: async ({ user, url }, request) => {
+			const locale = userLocale(user, request?.headers);
 			await sendEmail({
 				to: user.email,
-				subject: "Reset your password",
-				html: `<a href="${url}">Reset your password</a>`,
+				subject: m.email_reset_password_subject({}, { locale }),
+				html: `<a href="${url}">${m.email_reset_password_link({}, { locale })}</a>`,
 			});
 		},
 	},
 	emailVerification: {
 		sendOnSignUp: true,
 		autoSignInAfterVerification: true,
-		sendVerificationEmail: async ({ user, url }) => {
+		sendVerificationEmail: async ({ user, url }, request) => {
+			const locale = userLocale(user, request?.headers);
 			await sendEmail({
 				to: user.email,
-				subject: "Verify your email",
-				html: `<a href="${url}">Verify your email</a>`,
+				subject: m.email_verify_subject({}, { locale }),
+				html: `<a href="${url}">${m.email_verify_link({}, { locale })}</a>`,
 			});
 		},
 	},
@@ -72,13 +109,26 @@ const authOptions: BetterAuthOptions = {
 	},
 	plugins: [
 		magicLink({
-			sendMagicLink: async ({ email, url }) => {
+			sendMagicLink: async ({ email, url }, ctx) => {
+				// The email may not belong to a user yet (magic links also sign
+				// up), so fall back to the locale the request was made in.
+				const existing =
+					await ctx?.context.internalAdapter.findUserByEmail(email);
+				const locale = userLocale(existing?.user, ctx?.headers);
 				await sendEmail({
 					to: email,
-					subject: "Your sign-in link",
-					html: `<a href="${url}">Sign in</a>`,
+					subject: m.email_magic_link_subject({}, { locale }),
+					html: `<a href="${url}">${m.email_magic_link_link({}, { locale })}</a>`,
 				});
 			},
+		}),
+		// Translates Better Auth's error messages (by error code) into the
+		// signed-in user's locale, else the request's Accept-Language.
+		i18n({
+			translations: authErrorTranslations(),
+			defaultLocale: baseLocale,
+			detection: ["session", "callback"],
+			getLocale: (ctx) => requestLocale(ctx.headers),
 		}),
 		organization(),
 		admin(),

@@ -19,6 +19,7 @@ describe("AppController (e2e)", () => {
 	it("/ (GET)", () => {
 		return request(app.getHttpServer())
 			.get("/")
+			.set("Accept-Language", "en")
 			.expect(200)
 			.expect("Hello World!");
 	});

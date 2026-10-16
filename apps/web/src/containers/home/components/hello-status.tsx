@@ -1,3 +1,5 @@
+import { m } from "@workspace/i18n/messages";
+
 type HelloStatusProps = {
 	greeting: string | undefined;
 	isLoading: boolean;
@@ -10,14 +12,14 @@ export function HelloStatus({
 	isError,
 }: HelloStatusProps) {
 	const label = isLoading
-		? "Connecting to API…"
+		? m.hello_status_loading()
 		: isError
-			? "Could not reach the API"
+			? m.hello_status_error()
 			: greeting;
 
 	return (
 		<div className="text-muted-foreground font-mono text-xs">
-			API says: {label}
+			{m.hello_status_prefix()} {label}
 		</div>
 	);
 }

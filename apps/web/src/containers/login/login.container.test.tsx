@@ -17,6 +17,8 @@ vi.mock("@/lib/auth-client", () => ({
 			magicLink: vi.fn(),
 			social: vi.fn(),
 		},
+		useSession: () => ({ data: null }),
+		updateUser: vi.fn(),
 	},
 }));
 

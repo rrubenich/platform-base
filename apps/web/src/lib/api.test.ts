@@ -6,7 +6,7 @@ describe("apiGet", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("requests the given path under the API base URL", async () => {
+	it("requests the given path under the API base URL in the app's locale", async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
 			status: 200,
@@ -16,7 +16,9 @@ describe("apiGet", () => {
 
 		const result = await apiGet("");
 
-		expect(fetchMock).toHaveBeenCalledWith("/api");
+		expect(fetchMock).toHaveBeenCalledWith("/api", {
+			headers: { "Accept-Language": "en" },
+		});
 		expect(result).toBe("Hello World!");
 	});
 
