@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build && tsc -b",
+		"start": "serve -s dist -l tcp://0.0.0.0:${PORT:-3000}",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
 		"typecheck": "tsc -b",
@@ -24,7 +25,8 @@
 		"@workspace/ui": "workspace:*",
 		"better-auth": "^1.7.10",
 		"react": "^19.3.0",
-		"react-dom": "^19.3.0"
+		"react-dom": "^19.3.0",
+		"serve": "^14.2.6"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4",
