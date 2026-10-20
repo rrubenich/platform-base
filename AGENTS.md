@@ -186,6 +186,10 @@ Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.te
 
 Color tokens live in `packages/ui/src/styles/globals.css` (`:root` / `.dark`), shared by every app that imports `@workspace/ui/globals.css`. Changing the palette there affects all consumers — there's a regression test (`packages/ui/src/styles/globals.test.ts`) guarding the current token values; update it alongside any intentional palette change.
 
+## Routes map
+
+[`docs/routes.md`](docs/routes.md) lists every web and API route with its access level and goal. **Keep it current**: any change that adds, removes, renames or changes the access of a route (a file under `apps/web/src/routes/`, a Nest controller method, or a Better Auth plugin that exposes new `/api/auth/*` endpoints) updates its row in the same commit. Reviewers should treat a route change without a matching `docs/routes.md` change as incomplete.
+
 ## Commit conventions
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat(scope): ...`, `fix(scope): ...`, `chore: ...`, `style: ...`, `docs: ...`, `refactor(scope): ...`). Scope with the app/area touched (`db`, `api`, `web`, `cache`, `observability`, `theme`, etc.) where it adds clarity. Keep unrelated changes in separate commits.
