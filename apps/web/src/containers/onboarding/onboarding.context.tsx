@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
 import { ORGANIZATION_QUERY_KEY } from "@/lib/organization";
+import { useSignOut } from "@/lib/sign-out";
 
 export type PendingInvitation = {
 	id: string;
@@ -21,6 +22,8 @@ export type PendingInvitation = {
 
 type OnboardingContextValue = {
 	invitations: PendingInvitation[];
+	/** Loading the pending invitations failed. */
+	invitationsError: boolean;
 	/** Id of the invitation being accepted, if any. */
 	acceptingId: string | null;
 	/** Resolves to an error message, or null once created. */
@@ -33,6 +36,8 @@ type OnboardingContextValue = {
 	/** Whether that slug is taken, checked 300 ms after it settles; undefined while unknown. */
 	slugTaken: boolean | undefined;
 	accept: (invitationId: string) => Promise<void>;
+	signingOut: boolean;
+	signOut: () => Promise<void>;
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
@@ -70,11 +75,13 @@ function useSlugTaken(slug: string): boolean | undefined {
 export function OnboardingProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const signOutAndForget = useSignOut();
 	const [acceptingId, setAcceptingId] = useState<string | null>(null);
+	const [signingOut, setSigningOut] = useState(false);
 	const [slug, setSlug] = useState("");
 	const slugTaken = useSlugTaken(slug);
 
-	const { data: invitations = [] } = useQuery({
+	const { data: invitations = [], isError: invitationsError } = useQuery({
 		queryKey: ["user-invitations"],
 		queryFn: async () => {
 			const { data, error } =
@@ -117,13 +124,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 		await enter();
 	}
 
+	async function signOut() {
+		setSigningOut(true);
+		const { error } = await signOutAndForget();
+		setSigningOut(false);
+		if (error) {
+			toast.error(authErrorMessage(error, m.onboarding_sign_out_error()));
+			return;
+		}
+		navigate({ to: "/sign-in" });
+	}
+
 	const value: OnboardingContextValue = {
 		invitations,
+		invitationsError,
 		acceptingId,
 		createOrganization,
 		setSlug,
 		slugTaken,
 		accept,
+		signingOut,
+		signOut,
 	};
 
 	return (

@@ -2,23 +2,25 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { m } from "@workspace/i18n/messages";
+import { Toaster } from "@workspace/ui/components/sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authClient } from "@/lib/auth-client";
 import { OnboardingContainer } from "./onboarding.container";
 
 const navigate = vi.fn();
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
 vi.mock("@tanstack/react-router", () => ({
 	useNavigate: () => navigate,
+	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+		<a href={to}>{children}</a>
+	),
 }));
-
-vi.mock("sonner", () => ({ toast }));
 
 vi.mock("@/lib/auth-client", () => ({
 	authClient: {
 		useSession: () => ({ data: null }),
 		updateUser: vi.fn(),
+		signOut: vi.fn(),
 		organization: {
 			create: vi.fn(),
 			checkSlug: vi.fn(),
@@ -34,17 +36,22 @@ function renderOnboarding() {
 	const client = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 	});
-	return render(
+	client.setQueryData(["previous-user"], "stale");
+	const view = render(
 		<QueryClientProvider client={client}>
 			<OnboardingContainer />
+			<Toaster />
 		</QueryClientProvider>,
 	);
+	return { ...view, client };
 }
 
 describe("OnboardingContainer", () => {
 	beforeEach(() => {
 		navigate.mockReset();
-		toast.error.mockReset();
+		vi.mocked(authClient.signOut)
+			.mockReset()
+			.mockResolvedValue({ data: { success: true }, error: null } as never);
 		for (const fn of Object.values(org)) vi.mocked(fn).mockReset();
 		org.checkSlug.mockResolvedValue({
 			data: { status: true },
@@ -189,12 +196,68 @@ describe("OnboardingContainer", () => {
 				}),
 			);
 
-			await waitFor(() =>
-				expect(toast.error).toHaveBeenCalledWith(
-					"You already belong to an organization.",
-				),
-			);
+			expect(
+				await screen.findByText("You already belong to an organization."),
+			).toBeVisible();
 			expect(navigate).not.toHaveBeenCalled();
 		});
+	});
+
+	it("shows a message when the invitations fail to load", async () => {
+		org.listUserInvitations.mockResolvedValue({
+			data: null,
+			error: { status: 500, message: "boom" },
+		} as never);
+		renderOnboarding();
+
+		expect(
+			await screen.findByText(m.onboarding_invitations_error()),
+		).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: m.onboarding_create_submit() }),
+		).toBeInTheDocument();
+	});
+
+	it("explains the page and links to the security settings", () => {
+		renderOnboarding();
+
+		expect(
+			screen.getByRole("heading", { name: m.onboarding_title() }),
+		).toBeVisible();
+		expect(screen.getByText(m.onboarding_description())).toBeVisible();
+		expect(
+			screen.getByRole("link", { name: m.onboarding_security_link() }),
+		).toHaveAttribute("href", "/settings/security");
+	});
+
+	it("signs out, forgets cached data and goes to sign-in", async () => {
+		const { client } = renderOnboarding();
+
+		await userEvent.click(
+			screen.getByRole("button", { name: m.onboarding_sign_out() }),
+		);
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: "/sign-in" }),
+		);
+		expect(authClient.signOut).toHaveBeenCalled();
+		expect(client.getQueryData(["previous-user"])).toBeUndefined();
+	});
+
+	it("stays and says so when sign-out fails", async () => {
+		vi.mocked(authClient.signOut).mockResolvedValue({
+			data: null,
+			error: { status: 500, message: "" },
+		} as never);
+		renderOnboarding();
+
+		await userEvent.click(
+			screen.getByRole("button", { name: m.onboarding_sign_out() }),
+		);
+
+		expect(
+			await screen.findByText(m.onboarding_sign_out_error()),
+		).toBeVisible();
+		expect(navigate).not.toHaveBeenCalled();
 	});
 });
