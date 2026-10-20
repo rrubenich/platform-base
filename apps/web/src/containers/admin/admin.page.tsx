@@ -3,16 +3,12 @@ import {
 	SidebarInset,
 	SidebarProvider,
 } from "@workspace/ui/components/sidebar";
-import { Toaster } from "@workspace/ui/components/sonner";
 import type { CSSProperties } from "react";
 import { AppHeader } from "@/components/shell/app-header";
-import { useTheme } from "@/components/theme-provider";
 import { AdminSidebar } from "./components/admin-sidebar";
 
 // dashboard-01's layout, around the sidebar-07 sidebar.
 export function AdminPage() {
-	const { theme } = useTheme();
-
 	return (
 		<SidebarProvider
 			style={
@@ -26,7 +22,6 @@ export function AdminPage() {
 					<Outlet />
 				</div>
 			</SidebarInset>
-			<Toaster theme={theme} position="bottom-right" />
 		</SidebarProvider>
 	);
 }

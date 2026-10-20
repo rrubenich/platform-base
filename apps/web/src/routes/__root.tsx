@@ -1,13 +1,6 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { LocaleSync } from "@/components/locale-sync";
+import { createRootRoute } from "@tanstack/react-router";
+import { RootLayout } from "@/components/root-layout";
 
 export const Route = createRootRoute({
-	component: () => (
-		<>
-			<LocaleSync />
-			<ImpersonationBanner />
-			<Outlet />
-		</>
-	),
+	component: RootLayout,
 });
