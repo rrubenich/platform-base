@@ -272,6 +272,14 @@ describe("MembersContainer", () => {
 		).toBeInTheDocument();
 	});
 
+	it("does not open the invite dialog from ?invite=1 for a plain member", () => {
+		setViewer("member", "user-2", []);
+		search = { invite: 1 };
+		renderMembers();
+
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+
 	describe("invitations", () => {
 		beforeEach(() => {
 			search = { tab: "invitations" };

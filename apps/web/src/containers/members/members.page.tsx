@@ -20,7 +20,11 @@ export function MembersPage() {
 	const { organization, isLoading, can } = useMembersContext();
 	const search = useSearch({ from: "/_workspace/members" });
 	const navigate = useNavigate({ from: "/members" });
-	const [inviteOpen, setInviteOpen] = useState(search.invite === 1);
+	const [buttonOpen, setButtonOpen] = useState(false);
+	const canInvite = can({ invitation: ["create"] });
+	// The URL flag is authoritative; the permission gates at render time
+	// because `can` is false while the organization loads.
+	const inviteOpen = (search.invite === 1 || buttonOpen) && canInvite;
 
 	const pendingCount =
 		organization?.invitations.filter(({ status }) => status === "pending")
@@ -35,8 +39,8 @@ export function MembersPage() {
 						{m.members_description()}
 					</p>
 				</div>
-				{can({ invitation: ["create"] }) && (
-					<Button onClick={() => setInviteOpen(true)}>
+				{canInvite && (
+					<Button onClick={() => setButtonOpen(true)}>
 						<HugeiconsIcon
 							icon={UserAdd01Icon}
 							strokeWidth={2}
@@ -79,7 +83,7 @@ export function MembersPage() {
 			<InviteDialog
 				open={inviteOpen}
 				onOpenChange={(next) => {
-					setInviteOpen(next);
+					setButtonOpen(next);
 					if (!next && search.invite) {
 						void navigate({
 							search: (previous) => ({ ...previous, invite: undefined }),
