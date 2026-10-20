@@ -90,6 +90,10 @@ describe("WorkspaceContainer", () => {
 			"href",
 			"/",
 		);
+		expect(screen.getByRole("link", { name: /Members/ })).toHaveAttribute(
+			"href",
+			"/members",
+		);
 		expect(screen.getByText("outlet content")).toBeInTheDocument();
 	});
 

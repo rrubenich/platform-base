@@ -16,6 +16,7 @@ File-based routes under `apps/web/src/routes/`.
 | Path | Access | Goal | Source |
 |---|---|---|---|
 | `/` | User | Landing that routes by role. Signed-out → `/sign-in`; superadmins → `/admin`; no organization → `/onboarding`; members see a temporary welcome page (placeholder until the dashboard exists). | `routes/_workspace/index.tsx` (layout `routes/_workspace.tsx`) → `containers/home` |
+| `/members` | Organization member (manage: owner/admin) | The organization's members and pending invitations. Owners and admins invite people (`?invite=1` opens the invite dialog, `?tab=invitations` shows pending invitations), change roles, remove members, and resend or cancel invitations; plain members see the lists without controls. | `routes/_workspace/members.tsx` → `containers/members` |
 | `/onboarding` | User without an organization (members → `/`, signed-out → `/sign-in`, superadmin → `/admin`) | Create your organization (name and unique slug) or accept a pending invitation to join one. | `routes/onboarding.tsx` → `containers/onboarding` |
 | `/sign-in` | Guest | Sign in with email/password, Google, Apple or Microsoft. | `routes/(auth)/sign-in.tsx` → `containers/sign-in` |
 | `/sign-up` | Guest | Create an account; sends the email verification link. | `routes/(auth)/sign-up.tsx` → `containers/sign-up` |

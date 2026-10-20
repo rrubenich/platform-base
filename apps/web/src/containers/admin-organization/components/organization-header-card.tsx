@@ -26,7 +26,7 @@ import type { OrganizationDetail } from "@/lib/admin-api";
 import { formatDate } from "@/lib/format";
 import { initials } from "@/lib/initials";
 import { useAdminOrganizationContext } from "../admin-organization.context";
-import { FormDialog } from "./form-dialog";
+import { FormDialog } from "@/components/admin/form-dialog";
 
 export function OrganizationHeaderCard({
 	organization,

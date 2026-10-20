@@ -1,4 +1,7 @@
-import { DashboardSquare01Icon } from "@hugeicons/core-free-icons";
+import {
+	DashboardSquare01Icon,
+	UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
@@ -22,12 +25,17 @@ import { NavUser } from "./nav-user";
 export function WorkspaceSidebar(props: ComponentProps<typeof Sidebar>) {
 	const { organization, user, signOut } = useWorkspace();
 
-	// Later tasks append Members, Teams and Settings.
+	// Later tasks append Teams and Settings.
 	const items: NavItem[] = [
 		{
 			title: m.org_nav_dashboard(),
 			to: "/",
 			icon: <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} />,
+		},
+		{
+			title: m.org_nav_members(),
+			to: "/members",
+			icon: <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />,
 		},
 	];
 

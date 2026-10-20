@@ -31,8 +31,8 @@ import type {
 } from "@/lib/admin-api";
 import { formatDate } from "@/lib/format";
 import { useAdminOrganizationContext } from "../admin-organization.context";
-import { FormDialog } from "./form-dialog";
-import { RoleSelect } from "./role-select";
+import { FormDialog } from "@/components/admin/form-dialog";
+import { RoleSelect } from "@/components/role-select";
 
 function AddMemberDialog() {
 	const { addMember } = useAdminOrganizationContext();

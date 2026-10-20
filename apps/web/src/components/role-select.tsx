@@ -26,6 +26,7 @@ export function RoleSelect({
 	onChange,
 	size = "default",
 	disabled,
+	roles = MEMBER_ROLES,
 	"aria-label": ariaLabel,
 }: {
 	id?: string;
@@ -33,6 +34,8 @@ export function RoleSelect({
 	onChange: (role: MemberRole) => void;
 	size?: "sm" | "default";
 	disabled?: boolean;
+	/** The roles on offer; the current value is always shown. */
+	roles?: readonly MemberRole[];
 	"aria-label"?: string;
 }) {
 	return (
@@ -55,7 +58,7 @@ export function RoleSelect({
 			</SelectTrigger>
 			<SelectContent>
 				<SelectGroup>
-					{MEMBER_ROLES.map((role) => (
+					{roles.map((role) => (
 						<SelectItem key={role} value={role}>
 							{memberRoleLabel(role)}
 						</SelectItem>

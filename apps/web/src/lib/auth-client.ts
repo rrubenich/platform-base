@@ -27,7 +27,7 @@ export const authClient = createAuthClient({
 	// browser default. Changing locale reloads the page, so this stays fresh.
 	fetchOptions: { headers: { "Accept-Language": getLocale() } },
 	plugins: [
-		organizationClient(),
+		organizationClient({ teams: { enabled: true } }),
 		adminClient(),
 		magicLinkClient(),
 		// No onTwoFactorRedirect: the sign-in context reads `twoFactorRedirect`
