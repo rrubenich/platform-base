@@ -37,14 +37,41 @@ async function hasAdminAccess(session: Session) {
 	return allowed;
 }
 
+async function firstOrganization() {
+	const { data } = await authClient.organization.list();
+	return data?.[0];
+}
+
 /**
- * `beforeLoad` guard for the app's home: signed-out visitors go to sign-in,
- * admins go to the admin console.
+ * `beforeLoad` guard for the workspace: signed-out users go to sign-in, admins
+ * to the console, users without an organization to onboarding. A member with
+ * no active organization gets their (only) one activated.
  */
-export async function requireUser() {
+export async function requireOrganization() {
 	const session = await currentSession();
 	if (!session) throw redirect({ to: "/sign-in" });
 	if (await hasAdminAccess(session)) throw redirect({ to: "/admin" });
+
+	const organization = await firstOrganization();
+	if (!organization) throw redirect({ to: "/onboarding" });
+
+	if (!session.session.activeOrganizationId) {
+		await authClient.organization.setActive({
+			organizationId: organization.id,
+		});
+	}
+
+	return { session };
+}
+
+/**
+ * `beforeLoad` guard for onboarding: only signed-in users who don't belong to
+ * an organization yet.
+ */
+export async function requireNoOrganization() {
+	const session = await currentSession();
+	if (!session) throw redirect({ to: "/sign-in" });
+	if (await firstOrganization()) throw redirect({ to: "/" });
 
 	return { session };
 }

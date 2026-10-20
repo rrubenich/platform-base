@@ -3,7 +3,8 @@ import { authClient } from "@/lib/auth-client";
 import {
 	redirectIfSignedIn,
 	requireAdmin,
-	requireUser,
+	requireNoOrganization,
+	requireOrganization,
 	resetAdminAccessCache,
 } from "./auth-guards";
 
@@ -17,6 +18,7 @@ vi.mock("@/lib/auth-client", () => ({
 	authClient: {
 		getSession: vi.fn(),
 		admin: { hasPermission: vi.fn() },
+		organization: { list: vi.fn(), setActive: vi.fn() },
 	},
 }));
 
@@ -45,30 +47,8 @@ beforeEach(() => {
 	resetAdminAccessCache();
 	vi.mocked(authClient.getSession).mockReset();
 	vi.mocked(authClient.admin.hasPermission).mockReset();
-});
-
-describe("requireUser", () => {
-	it("sends signed-out visitors to sign-in", async () => {
-		signedOut();
-
-		await expect(requireUser()).rejects.toEqual({ redirect: "/sign-in" });
-	});
-
-	it("sends admins to the admin console", async () => {
-		signedIn();
-		permission(true);
-
-		await expect(requireUser()).rejects.toEqual({ redirect: "/admin" });
-	});
-
-	it("lets regular users in", async () => {
-		signedIn();
-		permission(false);
-
-		await expect(requireUser()).resolves.toMatchObject({
-			session: { session: { id: "session-1" } },
-		});
-	});
+	vi.mocked(authClient.organization.list).mockReset();
+	vi.mocked(authClient.organization.setActive).mockReset();
 });
 
 describe("redirectIfSignedIn", () => {
@@ -152,5 +132,94 @@ describe("requireAdmin", () => {
 		permission(false);
 		await expect(requireAdmin()).rejects.toEqual({ redirect: "/" });
 		expect(authClient.admin.hasPermission).toHaveBeenCalledTimes(2);
+	});
+});
+
+function signedInWith(activeOrganizationId: string | null) {
+	vi.mocked(authClient.getSession).mockResolvedValue({
+		data: {
+			session: { id: "session-1", activeOrganizationId },
+			user: { id: "user-1" },
+		},
+		error: null,
+	} as never);
+}
+
+function organizations(ids: string[]) {
+	vi.mocked(authClient.organization.list).mockResolvedValue({
+		data: ids.map((id) => ({ id })),
+		error: null,
+	} as never);
+}
+
+describe("requireOrganization", () => {
+	it("sends signed-out visitors to sign-in", async () => {
+		signedOut();
+
+		await expect(requireOrganization()).rejects.toEqual({
+			redirect: "/sign-in",
+		});
+	});
+
+	it("sends admins to the admin console", async () => {
+		signedInWith(null);
+		permission(true);
+
+		await expect(requireOrganization()).rejects.toEqual({ redirect: "/admin" });
+	});
+
+	it("sends users without an organization to onboarding", async () => {
+		signedInWith(null);
+		permission(false);
+		organizations([]);
+
+		await expect(requireOrganization()).rejects.toEqual({
+			redirect: "/onboarding",
+		});
+	});
+
+	it("activates the first organization when none is active", async () => {
+		signedInWith(null);
+		permission(false);
+		organizations(["org-1", "org-2"]);
+		vi.mocked(authClient.organization.setActive).mockResolvedValue({} as never);
+
+		await expect(requireOrganization()).resolves.toBeDefined();
+		expect(authClient.organization.setActive).toHaveBeenCalledWith({
+			organizationId: "org-1",
+		});
+	});
+
+	it("leaves an already active organization alone", async () => {
+		signedInWith("org-1");
+		permission(false);
+		organizations(["org-1"]);
+
+		await expect(requireOrganization()).resolves.toBeDefined();
+		expect(authClient.organization.setActive).not.toHaveBeenCalled();
+	});
+});
+
+describe("requireNoOrganization", () => {
+	it("sends signed-out visitors to sign-in", async () => {
+		signedOut();
+
+		await expect(requireNoOrganization()).rejects.toEqual({
+			redirect: "/sign-in",
+		});
+	});
+
+	it("sends members home", async () => {
+		signedInWith(null);
+		organizations(["org-1"]);
+
+		await expect(requireNoOrganization()).rejects.toEqual({ redirect: "/" });
+	});
+
+	it("lets users without an organization through", async () => {
+		signedInWith(null);
+		organizations([]);
+
+		await expect(requireNoOrganization()).resolves.toBeDefined();
 	});
 });

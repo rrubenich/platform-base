@@ -421,5 +421,9 @@
 	"auth_error_TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Please request a new code.",
 	"auth_error_ACCOUNT_TEMPORARILY_LOCKED": "Too many failed verification attempts. Your account is temporarily locked. Please try again later.",
 	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Invalid two factor cookie",
-	"auth_error_ALREADY_IN_AN_ORGANIZATION": "You already belong to an organization. Leave it before accepting another invitation."
+	"auth_error_ALREADY_IN_AN_ORGANIZATION": "You already belong to an organization. Leave it before accepting another invitation.",
+	"org_nav_label": "Workspace",
+	"org_nav_dashboard": "Dashboard",
+	"org_security_settings": "Security settings",
+	"org_sign_out": "Sign out"
 }

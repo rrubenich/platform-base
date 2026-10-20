@@ -421,5 +421,9 @@
 	"auth_error_TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Muitas tentativas. Solicite um novo código.",
 	"auth_error_ACCOUNT_TEMPORARILY_LOCKED": "Muitas tentativas de verificação falharam. Sua conta está temporariamente bloqueada. Tente novamente mais tarde.",
 	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Cookie de dois fatores inválido",
-	"auth_error_ALREADY_IN_AN_ORGANIZATION": "Você já faz parte de uma organização. Saia dela antes de aceitar outro convite."
+	"auth_error_ALREADY_IN_AN_ORGANIZATION": "Você já faz parte de uma organização. Saia dela antes de aceitar outro convite.",
+	"org_nav_label": "Espaço de trabalho",
+	"org_nav_dashboard": "Painel",
+	"org_security_settings": "Configurações de segurança",
+	"org_sign_out": "Sair"
 }
