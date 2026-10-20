@@ -20,5 +20,8 @@ export function initSentry() {
 		// Session Replay
 		replaysSessionSampleRate: 0.1,
 		replaysOnErrorSampleRate: 1.0,
+		ignoreSpans: [
+			/^POST faro-collector-prod-sa-east-1\.grafana\.net$/,
+		],
 	});
 }
