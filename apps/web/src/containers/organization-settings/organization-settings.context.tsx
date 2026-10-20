@@ -10,7 +10,6 @@ import {
 } from "react";
 import { useWorkspace } from "@/containers/workspace/workspace.context";
 import { authClient } from "@/lib/auth-client";
-import { authErrorMessage } from "@/lib/auth-error";
 import {
 	ORGANIZATION_QUERY_KEY,
 	type OrganizationDetails,
@@ -118,11 +117,30 @@ export function OrganizationSettingsProvider({
 						memberId,
 						role: "owner",
 					});
-					if (promoted.error || !ownMember) return promoted;
-					return authClient.organization.updateMemberRole({
-						memberId: ownMember.id,
-						role: "admin",
+					if (promoted.error) return promoted;
+
+					const demoted = ownMember
+						? await authClient.organization.updateMemberRole({
+								memberId: ownMember.id,
+								role: "admin",
+							})
+						: { error: { message: undefined, status: undefined } };
+					if (!demoted.error) return demoted;
+
+					// Two owners now: refresh, and say exactly what happened.
+					await queryClient.invalidateQueries({
+						queryKey: ORGANIZATION_QUERY_KEY,
 					});
+					return {
+						error: {
+							message: m.org_settings_transfer_partial({
+								name:
+									details?.members.find(({ id }) => id === memberId)?.user
+										.name ?? "",
+							}),
+							status: demoted.error.status,
+						},
+					};
 				},
 				{
 					success: m.org_settings_toast_transferred(),
@@ -131,27 +149,26 @@ export function OrganizationSettingsProvider({
 			),
 		leave: async () => {
 			if (!details) return null;
-			const { error } = await authClient.organization.leave({
-				organizationId: details.id,
-			});
-			if (error) {
-				return error.code === ONLY_OWNER_CODE
-					? m.org_settings_leave_only_owner()
-					: authErrorMessage(error, m.org_settings_leave_error());
-			}
-			await exit();
-			return null;
+			const failure = await submit(
+				() => authClient.organization.leave({ organizationId: details.id }),
+				{
+					fallback: m.org_settings_leave_error(),
+					codeMessages: {
+						[ONLY_OWNER_CODE]: m.org_settings_leave_only_owner(),
+					},
+				},
+			);
+			if (!failure) await exit();
+			return failure;
 		},
 		deleteOrganization: async () => {
 			if (!details) return null;
-			const { error } = await authClient.organization.delete({
-				organizationId: details.id,
-			});
-			if (error) {
-				return authErrorMessage(error, m.org_settings_delete_error());
-			}
-			await exit();
-			return null;
+			const failure = await submit(
+				() => authClient.organization.delete({ organizationId: details.id }),
+				{ fallback: m.org_settings_delete_error() },
+			);
+			if (!failure) await exit();
+			return failure;
 		},
 	};
 

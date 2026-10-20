@@ -244,15 +244,20 @@ describe("OrganizationSettingsContainer", () => {
 					data: null,
 					error: { message: "Cannot demote", status: 403 },
 				} as never);
-			renderSettings();
+			const { invalidate } = renderSettings();
 			const dialog = await openTransfer();
 
 			await userEvent.click(
 				within(dialog).getByRole("button", { name: "Transfer ownership" }),
 			);
 
-			expect(await within(dialog).findByText("Cannot demote")).toBeVisible();
+			expect(
+				await within(dialog).findByText(
+					"Bob Builder is now an owner, but your role could not be changed to admin.",
+				),
+			).toBeVisible();
 			expect(authClient.organization.updateMemberRole).toHaveBeenCalledTimes(2);
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["organization"] });
 		});
 
 		it("does not demote when the promotion fails", async () => {

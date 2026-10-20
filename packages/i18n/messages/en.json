@@ -546,6 +546,7 @@
 	"org_settings_transfer_member_placeholder": "Select a member",
 	"org_settings_transfer_submit": "Transfer ownership",
 	"org_settings_transfer_error": "Could not transfer ownership.",
+	"org_settings_transfer_partial": "{name} is now an owner, but your role could not be changed to admin.",
 	"org_settings_toast_transferred": "Ownership transferred.",
 	"org_settings_leave_title": "Leave organization",
 	"org_settings_leave_description": "You lose access to this organization immediately.",

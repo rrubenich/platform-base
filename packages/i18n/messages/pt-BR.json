@@ -546,6 +546,7 @@
 	"org_settings_transfer_member_placeholder": "Selecione um membro",
 	"org_settings_transfer_submit": "Transferir propriedade",
 	"org_settings_transfer_error": "Não foi possível transferir a propriedade.",
+	"org_settings_transfer_partial": "{name} agora é proprietário, mas não foi possível alterar o seu papel para administrador.",
 	"org_settings_toast_transferred": "Propriedade transferida.",
 	"org_settings_leave_title": "Sair da organização",
 	"org_settings_leave_description": "Você perde o acesso a esta organização imediatamente.",
