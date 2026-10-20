@@ -43,6 +43,7 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 | `GET /api` | Public | Smoke test: localized hello. | `app.controller.ts` |
 | `GET /api/health/db` | Public | Postgres (Neon) connectivity check. | `health/health.controller.ts` |
 | `GET /api/health/redis` | Public | Redis connectivity check. | `health/health.controller.ts` |
+| `GET /api/health/agents` | Public | Agents service (`apps/agents`) liveness, via its `/health`. | `health/health.controller.ts` |
 | `GET /api/admin/stats` | `user:list`, `session:list` | Platform totals for the dashboard cards. | `admin/admin.controller.ts` |
 | `GET /api/admin/stats/growth?days=` | `user:list` | Daily new users/organizations, zero-filled (1–365 days, default 90). | `admin/admin.controller.ts` |
 | `GET /api/admin/organizations` | `organization:list` | List/search every organization with member and team counts. | `admin/organizations/organizations.controller.ts` |
@@ -58,6 +59,9 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 | `DELETE /api/admin/organizations/:id/teams/:teamId` | `team:delete` | Delete a team (members stay in the organization). | 〃 |
 | `POST /api/admin/organizations/:id/teams/:teamId/members` | `team:update` | Add an organization member to a team. | 〃 |
 | `DELETE /api/admin/organizations/:id/teams/:teamId/members/:userId` | `team:update` | Remove a user from a team. | 〃 |
+| `POST /api/agents/assistant/chat` | Organization member (active organization) | Chat with the assistant agent; the reply streams back as server-sent events (`delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/agents.controller.ts` |
+| `POST /api/agents/assistant/jobs` | Organization member (active organization) | Queue a background assistant run; returns its id (202). | 〃 |
+| `GET /api/agents/assistant/jobs/:id` | Organization member (active organization) | A background job's status and result; 404 for jobs of other organizations. | 〃 |
 
 ### Agents service (`apps/agents`, internal)
 

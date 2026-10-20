@@ -8,6 +8,7 @@ Instructions for agents (and humans) working in this repository.
 - **`apps/api`**: NestJS (Express adapter), Drizzle ORM over `node-postgres`, ESM (`"type": "module"`, `.js` extensions on relative imports).
 - **`apps/web`**: Vite + React 19 + TanStack Router (file-based) + TanStack Query + Tailwind CSS v4.
 - **`packages/ui`**: shared shadcn/ui component library (`@workspace/ui`), consumed by `apps/web`.
+- **`apps/agents`**: Python 3.13 + FastAPI AI agents service on LangChain + LangGraph, provider-agnostic (the model is configuration), background jobs on Redis via arq. Internal: only `apps/api` calls it. Managed with **uv**; its `package.json` only wraps uv so Turborepo runs it.
 - **Lint/format**: Biome (tabs, double quotes, auto-organized imports). Run `bun run format` before committing.
 - **Package manager**: Bun. Use `bun add`/`bun remove`, not `npm`/`pnpm`/`yarn`.
 
@@ -20,6 +21,7 @@ Instructions for agents (and humans) working in this repository.
 | Backend traces | OpenTelemetry → Grafana Cloud | `OTEL_*` in `apps/api/.env`, bootstrapped in `apps/api/src/lib/tracing.ts` |
 | Frontend RUM/traces | Grafana Faro | `VITE_FARO_COLLECTOR_URL` in `apps/web/.env` |
 | Frontend errors/replay | Sentry | `VITE_SENTRY_DSN` in `apps/web/.env` |
+| LLM | Any LangChain provider (OpenAI by default) | `LLM_MODEL` + the provider's key (`OPENAI_API_KEY`, ...) in `apps/agents/.env` |
 
 Every `.env.example` documents the vars for its app — copy to `.env` and fill in real values. Never commit `.env` files or paste real secrets into `.env.example`.
 
@@ -186,6 +188,64 @@ Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.te
 
 Color tokens live in `packages/ui/src/styles/globals.css` (`:root` / `.dark`), shared by every app that imports `@workspace/ui/globals.css`. Changing the palette there affects all consumers — there's a regression test (`packages/ui/src/styles/globals.test.ts`) guarding the current token values; update it alongside any intentional palette change.
 
+## Agents service (`apps/agents`)
+
+Python FastAPI service that runs the AI agents. Look at `src/agents_service/agents/assistant.py` as the reference agent.
+
+### How it fits
+
+```
+web ──► apps/api  /api/agents/*  ──► apps/agents  /v1/*   (internal, never exposed)
+          AuthGuard + active-org         X-Service-Token + X-User-Id + X-Organization-Id
+          membership check
+```
+
+- **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with the shared `AGENTS_SERVICE_TOKEN` and the caller's ids. `apps/agents` trusts those headers, so it must never be reachable from the internet.
+- **Interactive agents** stream over SSE (`fastapi.sse.EventSourceResponse`); `apps/api` pipes the stream through unchanged and aborts it when the browser disconnects.
+- **Background agents** run on an arq worker (`src/agents_service/worker.py`) over the same Redis Cloud database, on their own queue (`agents:queue`). Jobs record who queued them; a job is only visible to its organization.
+
+### Layout
+
+```
+apps/agents/
+  src/agents_service/
+    main.py          # FastAPI app; lifespan creates the shared Redis pool
+    config.py        # pydantic-settings, every env var
+    llm.py           # the one place the chat model is created, from LLM_MODEL
+    dependencies.py  # service-token check, caller, shared clients
+    jobs.py          # job queue (arq) with per-organization visibility
+    worker.py        # arq WorkerSettings: one function per background agent
+    agents/          # one module per agent: LangGraph graph (`build`) + stream/run functions
+    routers/         # HTTP routes, one router per agent
+  tests/             # pytest; real graphs on LangChain's fake chat model, fake queue (see conftest.py)
+  openapi.json       # committed schema apps/api generates its types from
+```
+
+### Adding an agent
+
+1. Write `agents/<name>.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
+2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(require_service_token)]` and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
+3. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
+4. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method) and add the rows to `docs/routes.md`.
+
+**Switching the LLM** is configuration only: set `LLM_MODEL` to another LangChain `"<provider>:<model>"` id (e.g. `anthropic:claude-opus-5-5`), add that provider's integration (`uv add langchain-anthropic`) and its API key. Only `langchain-openai` is installed by default. Provider-specific options (reasoning effort, etc.) go in `llm.chat_model`, not in agents. Errors differ per provider, so agents treat any model failure the same way (logged, reported as `model_error`).
+
+### Commands (from `apps/agents`)
+
+```bash
+uv sync               # install Python deps (bun install doesn't)
+bun run dev           # FastAPI (:8000) + arq worker, both reloading
+bun run lint          # ruff check + format check
+bun run format        # ruff format + fixes
+bun run typecheck     # pyright (strict on src/)
+bun run test          # pytest
+bun run openapi       # rewrite openapi.json
+```
+
+Use `uv add <pkg>` / `uv add --dev <pkg>` for dependencies, never `pip`. Tracing is `opentelemetry-instrument` in the `dev`/`start*` scripts with the same `OTEL_*` Grafana Cloud settings as `apps/api` (service names `agents` and `agents-worker`). Model calls themselves aren't traced yet (LangSmith or an OpenTelemetry LangChain instrumentation can add that). Don't add manual tracing in application code.
+
+The agents service has no database access yet. When an agent needs tables, define them in `apps/api/src/database/schema.ts` and migrate with Drizzle as usual: Drizzle stays the single owner of migrations, Python only reads and writes.
+
 ## Routes map
 
 [`docs/routes.md`](docs/routes.md) lists every web and API route with its access level and goal. **Keep it current**: any change that adds, removes, renames or changes the access of a route (a file under `apps/web/src/routes/`, a Nest controller method, or a Better Auth plugin that exposes new `/api/auth/*` endpoints) updates its row in the same commit. Reviewers should treat a route change without a matching `docs/routes.md` change as incomplete.
@@ -199,4 +259,5 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat(scope): 
 - Don't commit `.env` files or real credentials — only `.env.example` with placeholders, ever.
 - Don't add a local Postgres/Redis (docker-compose or otherwise) — the project intentionally uses Neon and Redis Cloud for every environment.
 - Don't bypass the shared `DATABASE_CONNECTION`/`REDIS_CONNECTION` providers with ad hoc clients.
-- Don't hand-edit `apps/web/src/routeTree.gen.ts`.
+- Don't hand-edit `apps/web/src/routeTree.gen.ts` or `apps/api/src/agents/agents-api.gen.ts`.
+- Don't expose `apps/agents` publicly or call it from `apps/web`: it trusts the caller headers `apps/api` sends.

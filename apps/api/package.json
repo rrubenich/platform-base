@@ -24,7 +24,8 @@
 		"test:e2e": "vitest run --config ./vitest.config.e2e.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun src/database/migrate.ts",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"agents:types": "openapi-typescript ../agents/openapi.json -o src/agents/agents-api.gen.ts && biome format --write src/agents/agents-api.gen.ts"
 	},
 	"dependencies": {
 		"@better-auth/i18n": "^1.7.10",
@@ -67,6 +68,7 @@
 		"@types/supertest": "^7.0.0",
 		"@vitest/coverage-v8": "^4.1.2",
 		"drizzle-kit": "^0.31.11",
+		"openapi-typescript": "^7.13.0",
 		"source-map-support": "^0.5.21",
 		"supertest": "^7.0.0",
 		"typescript": "^6.0.2",

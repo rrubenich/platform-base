@@ -1,4 +1,5 @@
 import { Test, type TestingModule } from "@nestjs/testing";
+import { AgentsService } from "../agents/agents.service.js";
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { REDIS_CONNECTION } from "../redis/redis.module.js";
 import { HealthController } from "./health.controller.js";
@@ -7,16 +8,19 @@ describe("HealthController", () => {
 	let controller: HealthController;
 	const db = { execute: vi.fn() };
 	const redis = { ping: vi.fn() };
+	const agents = { health: vi.fn() };
 
 	beforeEach(async () => {
 		db.execute.mockReset();
 		redis.ping.mockReset();
+		agents.health.mockReset();
 
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [HealthController],
 			providers: [
 				{ provide: DATABASE_CONNECTION, useValue: db },
 				{ provide: REDIS_CONNECTION, useValue: redis },
+				{ provide: AgentsService, useValue: agents },
 			],
 		}).compile();
 
@@ -49,5 +53,11 @@ describe("HealthController", () => {
 		redis.ping.mockRejectedValue(new Error("connection refused"));
 
 		await expect(controller.checkRedis()).rejects.toThrow("connection refused");
+	});
+
+	it("returns the agents service's own health check", async () => {
+		agents.health.mockResolvedValue({ status: "ok" });
+
+		await expect(controller.checkAgents()).resolves.toEqual({ status: "ok" });
 	});
 });

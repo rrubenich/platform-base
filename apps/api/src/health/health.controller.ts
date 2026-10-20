@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { Redis } from "ioredis";
+import { AgentsService } from "../agents/agents.service.js";
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { REDIS_CONNECTION } from "../redis/redis.module.js";
 
@@ -14,6 +15,7 @@ export class HealthController {
 		private readonly db: NodePgDatabase,
 		@Inject(REDIS_CONNECTION)
 		private readonly redis: Redis,
+		private readonly agents: AgentsService,
 	) {}
 
 	@Get("db")
@@ -28,5 +30,11 @@ export class HealthController {
 	async checkRedis(): Promise<{ status: "ok" }> {
 		await this.redis.ping();
 		return { status: "ok" };
+	}
+
+	@Get("agents")
+	@ApiOperation({ summary: "Check that the internal agents service is up" })
+	checkAgents(): Promise<{ status: "ok" }> {
+		return this.agents.health();
 	}
 }
