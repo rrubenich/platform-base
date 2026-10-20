@@ -18,9 +18,10 @@ export type InvitationView =
 	| { kind: "signed-out" }
 	| { kind: "wrong-account"; currentEmail: string }
 	| { kind: "invalid" }
+	| { kind: "unverified" }
 	| { kind: "error"; message: string }
 	| { kind: "ready"; invitation: InvitationDetails }
-	| { kind: "declined"; organizationName: string };
+	| { kind: "declined"; organizationName: string | null };
 
 type InvitationContextValue = {
 	view: InvitationView;
@@ -34,17 +35,22 @@ type InvitationContextValue = {
 	accept: () => Promise<void>;
 	reject: () => Promise<void>;
 	switchAccount: () => Promise<void>;
+	/** Loads the invitation again after a failure. */
+	retry: () => void;
 };
 
 const InvitationContext = createContext<InvitationContextValue | undefined>(
 	undefined,
 );
 
-// The plugin answers these when the invitation can't be used by this session.
+// getInvitation answers a missing, non-pending or expired invitation with a
+// bare 400 ("Invitation not found!") that carries no code; the recipient check
+// and accept/reject use these codes.
 const UNAVAILABLE_CODES = [
 	"INVITATION_NOT_FOUND",
 	"YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION",
 ];
+const UNVERIFIED_CODE = "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION";
 
 const sameEmail = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -58,9 +64,9 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 	const [pending, setPending] =
 		useState<InvitationContextValue["pending"]>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
-	const [declinedOrganization, setDeclinedOrganization] = useState<
-		string | null
-	>(null);
+	const [declined, setDeclined] = useState<{ name: string | null } | null>(
+		null,
+	);
 
 	const sessionEmail = session?.user.email;
 	const wrongAccount =
@@ -77,16 +83,23 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 				query: { id: invitationId },
 			});
 			if (error || !data) {
+				const code = error?.code ?? "";
+				if (
+					UNAVAILABLE_CODES.includes(code) ||
+					(error?.status === 400 && !code)
+				) {
+					return { kind: "unavailable" as const };
+				}
+				if (code === UNVERIFIED_CODE) return { kind: "unverified" as const };
 				return {
-					ok: false as const,
-					unavailable: UNAVAILABLE_CODES.includes(error?.code ?? ""),
+					kind: "failed" as const,
 					message: error
 						? authErrorMessage(error, m.invitation_load_error())
 						: m.invitation_load_error(),
 				};
 			}
 			return {
-				ok: true as const,
+				kind: "ready" as const,
 				invitation: {
 					organizationName: data.organizationName,
 					inviterEmail: data.inviterEmail,
@@ -105,8 +118,8 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 
 	let view: InvitationView;
 	const result = invitationQuery.data;
-	if (declinedOrganization !== null) {
-		view = { kind: "declined", organizationName: declinedOrganization };
+	if (declined !== null) {
+		view = { kind: "declined", organizationName: declined.name };
 	} else if (isSessionPending) {
 		view = { kind: "loading" };
 	} else if (!session) {
@@ -117,10 +130,12 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 		view = { kind: "error", message: m.invitation_load_error() };
 	} else if (!result) {
 		view = { kind: "loading" };
-	} else if (result.ok) {
+	} else if (result.kind === "ready") {
 		view = { kind: "ready", invitation: result.invitation };
-	} else if (result.unavailable) {
+	} else if (result.kind === "unavailable") {
 		view = { kind: "invalid" };
+	} else if (result.kind === "unverified") {
+		view = { kind: "unverified" };
 	} else {
 		view = { kind: "error", message: result.message };
 	}
@@ -151,9 +166,9 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 			setActionError(authErrorMessage(error, m.invitation_reject_error()));
 			return;
 		}
-		setDeclinedOrganization(
-			view.kind === "ready" ? view.invitation.organizationName : "",
-		);
+		setDeclined({
+			name: view.kind === "ready" ? view.invitation.organizationName : null,
+		});
 	}
 
 	async function switchAccount() {
@@ -162,7 +177,7 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 		const { error } = await authClient.signOut();
 		setPending(null);
 		if (error) {
-			setActionError(authErrorMessage(error, m.invitation_load_error()));
+			setActionError(authErrorMessage(error, m.invitation_sign_out_error()));
 			return;
 		}
 		navigate({ to: "/sign-in", search: authSearch });
@@ -177,6 +192,7 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 		accept,
 		reject,
 		switchAccount,
+		retry: () => void invitationQuery.refetch(),
 	};
 
 	return (

@@ -595,5 +595,11 @@
 	"invitation_invalid_description": "Este convite é inválido, expirou ou foi cancelado.",
 	"invitation_go_home": "Ir para o início",
 	"invitation_declined_title": "Convite recusado",
-	"invitation_declined_description": "Você recusou o convite para entrar em {organization}."
+	"invitation_declined_description": "Você recusou o convite para entrar em {organization}.",
+	"invitation_unverified_title": "Confirme seu e-mail primeiro",
+	"invitation_unverified_description": "Confirme seu endereço de e-mail pelo link que enviamos e abra este convite novamente.",
+	"invitation_sign_out": "Sair",
+	"invitation_sign_out_error": "Não foi possível sair. Tente novamente.",
+	"invitation_retry": "Tentar novamente",
+	"invitation_declined_generic": "Você recusou o convite."
 }

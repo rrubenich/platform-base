@@ -177,7 +177,7 @@ describe("InvitationContainer", () => {
 		signedInAs("jane@example.com");
 		vi.mocked(org.getInvitation).mockResolvedValue({
 			data: null,
-			error: { code: "INVITATION_NOT_FOUND", message: "Invitation not found" },
+			error: { status: 400, message: "Invitation not found!" },
 		} as never);
 
 		renderPage();
@@ -189,6 +189,42 @@ describe("InvitationContainer", () => {
 			"href",
 			"/",
 		);
+	});
+
+	it("asks an unverified invitee to verify and offers sign out", async () => {
+		signedInAs("jane@example.com");
+		vi.mocked(org.getInvitation).mockResolvedValue({
+			data: null,
+			error: {
+				status: 403,
+				code: "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION",
+				message: "Email verification required",
+			},
+		} as never);
+		vi.mocked(authClient.signOut).mockResolvedValue({} as never);
+
+		renderPage();
+
+		expect(
+			await screen.findByText("Verify your email first"),
+		).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+		expect(authClient.signOut).toHaveBeenCalled();
+	});
+
+	it("offers retry and home when loading fails", async () => {
+		signedInAs("jane@example.com");
+		vi.mocked(org.getInvitation).mockResolvedValue({
+			data: null,
+			error: { status: 500, message: "Boom" },
+		} as never);
+
+		renderPage();
+
+		expect(await screen.findByText("Boom")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Go home" })).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+		expect(org.getInvitation).toHaveBeenCalledTimes(2);
 	});
 
 	it("shows the server's message when accepting fails", async () => {

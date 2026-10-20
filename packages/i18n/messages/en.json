@@ -595,5 +595,11 @@
 	"invitation_invalid_description": "This invitation is invalid, has expired or was cancelled.",
 	"invitation_go_home": "Go home",
 	"invitation_declined_title": "Invitation declined",
-	"invitation_declined_description": "You declined the invitation to join {organization}."
+	"invitation_declined_description": "You declined the invitation to join {organization}.",
+	"invitation_unverified_title": "Verify your email first",
+	"invitation_unverified_description": "Verify your email address using the link we sent you, then open this invitation again.",
+	"invitation_sign_out": "Sign out",
+	"invitation_sign_out_error": "Could not sign out. Please try again.",
+	"invitation_retry": "Try again",
+	"invitation_declined_generic": "You declined the invitation."
 }
