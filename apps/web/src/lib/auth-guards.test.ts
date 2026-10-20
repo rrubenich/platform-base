@@ -8,7 +8,9 @@ import {
 } from "./auth-guards";
 
 vi.mock("@tanstack/react-router", () => ({
-	redirect: (options: { to: string }) => ({ redirect: options.to }),
+	redirect: (options: { to?: string; href?: string }) => ({
+		redirect: options.to ?? options.href,
+	}),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -73,13 +75,41 @@ describe("redirectIfSignedIn", () => {
 	it("leaves signed-out visitors on the page", async () => {
 		signedOut();
 
-		await expect(redirectIfSignedIn()).resolves.toBeUndefined();
+		await expect(redirectIfSignedIn({ search: {} })).resolves.toBeUndefined();
 	});
 
 	it("sends signed-in visitors home, which routes them on", async () => {
 		signedIn();
 
-		await expect(redirectIfSignedIn()).rejects.toEqual({ redirect: "/" });
+		await expect(redirectIfSignedIn({ search: {} })).rejects.toEqual({
+			redirect: "/",
+		});
+	});
+
+	it("sends them to the page they asked for", async () => {
+		signedIn();
+
+		await expect(
+			redirectIfSignedIn({ search: { redirect: "/invitations/i1" } }),
+		).rejects.toEqual({ redirect: "/invitations/i1" });
+	});
+
+	it("keeps the query string of that page", async () => {
+		signedIn();
+
+		await expect(
+			redirectIfSignedIn({
+				search: { redirect: "/invitations/i1?email=a%40b.c" },
+			}),
+		).rejects.toEqual({ redirect: "/invitations/i1?email=a%40b.c" });
+	});
+
+	it("ignores redirects that leave the app", async () => {
+		signedIn();
+
+		await expect(
+			redirectIfSignedIn({ search: { redirect: "//evil.example" } }),
+		).rejects.toEqual({ redirect: "/" });
 	});
 });
 

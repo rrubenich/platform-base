@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import {
@@ -8,6 +8,11 @@ import {
 import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
+import {
+	parseAuthSearch,
+	redirectNavigation,
+	safeRedirect,
+} from "@/lib/redirect-target";
 import type { SignInMode } from "./components/sign-in-form";
 
 type SignInContextValue = {
@@ -16,6 +21,8 @@ type SignInContextValue = {
 	isSubmitting: boolean;
 	error: string | null;
 	magicLinkSent: boolean;
+	/** Locks the email field when the page was opened for a specific address. */
+	lockedEmail: string | undefined;
 	signInWithPassword: (values: { email: string; password: string }) => void;
 	signInWithMagicLink: (values: { email: string }) => void;
 	signInWithSocial: (provider: SocialProvider) => void;
@@ -25,6 +32,10 @@ const SignInContext = createContext<SignInContextValue | undefined>(undefined);
 
 export function SignInProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
+	const { redirect, email: lockedEmail } = parseAuthSearch(
+		useSearch({ strict: false }),
+	);
+	const target = safeRedirect(redirect);
 	const [mode, setModeState] = useState<SignInMode>("password");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -46,7 +57,7 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 		const { data, error: signInError } = await authClient.signIn.email({
 			email: values.email,
 			password: values.password,
-			callbackURL: appURL("/"),
+			callbackURL: appURL(target),
 		});
 
 		setIsSubmitting(false);
@@ -59,11 +70,14 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 		// With 2FA on, no session exists yet: the server set a short-lived
 		// two-factor cookie and expects a code on /two-factor first.
 		if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
-			navigate({ to: "/two-factor" });
+			navigate({
+				to: "/two-factor",
+				...(redirect && { search: { redirect: target } }),
+			});
 			return;
 		}
 
-		navigate({ to: "/" });
+		navigate(redirectNavigation(target));
 	}
 
 	async function signInWithMagicLink(values: { email: string }) {
@@ -73,7 +87,7 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 
 		const { error: signInError } = await authClient.signIn.magicLink({
 			email: values.email,
-			callbackURL: appURL("/"),
+			callbackURL: appURL(target),
 		});
 
 		setIsSubmitting(false);
@@ -92,7 +106,7 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 
 		const { error: signInError } = await authClient.signIn.social({
 			provider,
-			callbackURL: appURL("/"),
+			callbackURL: appURL(target),
 		});
 
 		setIsSubmitting(false);
@@ -113,6 +127,7 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 		isSubmitting,
 		error,
 		magicLinkSent,
+		lockedEmail,
 		signInWithPassword,
 		signInWithMagicLink,
 		signInWithSocial,

@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authClient } from "@/lib/auth-client";
 import { SignUpContainer } from "./sign-up.container";
 
+let search: Record<string, unknown> = {};
+
 vi.mock("@tanstack/react-router", () => ({
+	useSearch: () => search,
 	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
 		<a href={to}>{children}</a>
 	),
@@ -38,6 +41,7 @@ async function fillForm({
 
 describe("SignUpContainer", () => {
 	beforeEach(() => {
+		search = {};
 		vi.mocked(authClient.signUp.email).mockReset();
 		vi.mocked(authClient.signIn.social).mockReset();
 	});
@@ -167,6 +171,59 @@ describe("SignUpContainer", () => {
 					`Could not sign up with ${name}. Please try again.`,
 				),
 			).toBeInTheDocument();
+		});
+	});
+
+	describe("returning to a page", () => {
+		it("prefills the email read-only and sends the redirect as callback", async () => {
+			search = { redirect: "/invitations/i1", email: "jane@example.com" };
+			vi.mocked(authClient.signUp.email).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignUpContainer />);
+
+			const email = screen.getByLabelText("Email");
+			expect(email).toHaveValue("jane@example.com");
+			expect(email).toHaveAttribute("readonly");
+
+			await userEvent.type(screen.getByLabelText("Name"), "Jane Doe");
+			await userEvent.type(screen.getByLabelText("Password"), "s3cret-pass");
+			await userEvent.type(
+				screen.getByLabelText("Confirm password"),
+				"s3cret-pass",
+			);
+			await userEvent.click(
+				screen.getByRole("button", { name: "Create account" }),
+			);
+
+			expect(authClient.signUp.email).toHaveBeenCalledWith({
+				name: "Jane Doe",
+				email: "jane@example.com",
+				password: "s3cret-pass",
+				locale: "en",
+				callbackURL: `${window.location.origin}/invitations/i1`,
+			});
+		});
+
+		it("uses the redirect for social sign-up", async () => {
+			search = { redirect: "/invitations/i1" };
+			vi.mocked(authClient.signIn.social).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignUpContainer />);
+
+			await userEvent.click(
+				screen.getByRole("button", { name: "Sign up with Google" }),
+			);
+
+			expect(authClient.signIn.social).toHaveBeenCalledWith({
+				provider: "google",
+				callbackURL: `${window.location.origin}/invitations/i1`,
+			});
 		});
 	});
 });

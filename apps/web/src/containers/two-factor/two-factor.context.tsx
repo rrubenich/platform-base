@@ -1,8 +1,9 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
+import { parseAuthSearch, redirectNavigation } from "@/lib/redirect-target";
 import type { TwoFactorMethod } from "./components/two-factor-form";
 
 type TwoFactorContextValue = {
@@ -23,6 +24,7 @@ const TwoFactorContext = createContext<TwoFactorContextValue | undefined>(
 
 export function TwoFactorProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
+	const { redirect } = parseAuthSearch(useSearch({ strict: false }));
 	const [method, setMethodState] = useState<TwoFactorMethod>("totp");
 	const [trustDevice, setTrustDevice] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,7 +81,7 @@ export function TwoFactorProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
-		navigate({ to: "/" });
+		navigate(redirectNavigation(redirect));
 	}
 
 	const value: TwoFactorContextValue = {

@@ -9,6 +9,7 @@ export function SignInPage() {
 		isSubmitting,
 		error,
 		magicLinkSent,
+		lockedEmail,
 		signInWithPassword,
 		signInWithMagicLink,
 		signInWithSocial,
@@ -26,6 +27,7 @@ export function SignInPage() {
 					isSubmitting={isSubmitting}
 					error={error}
 					magicLinkSent={magicLinkSent}
+					lockedEmail={lockedEmail}
 				/>
 				<LocaleSwitcher />
 			</div>

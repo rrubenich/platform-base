@@ -1,3 +1,4 @@
+import { useSearch } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { getLocale } from "@workspace/i18n/runtime";
 import { createContext, type ReactNode, useContext, useState } from "react";
@@ -8,12 +9,15 @@ import {
 import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
+import { parseAuthSearch, safeRedirect } from "@/lib/redirect-target";
 import type { SignUpValues } from "./components/sign-up-form";
 
 type SignUpContextValue = {
 	isSubmitting: boolean;
 	error: string | null;
 	verificationSentTo: string | null;
+	/** Locks the email field when the page was opened for a specific address. */
+	lockedEmail: string | undefined;
 	signUpWithPassword: (values: SignUpValues) => void;
 	signUpWithSocial: (provider: SocialProvider) => void;
 };
@@ -21,6 +25,10 @@ type SignUpContextValue = {
 const SignUpContext = createContext<SignUpContextValue | undefined>(undefined);
 
 export function SignUpProvider({ children }: { children: ReactNode }) {
+	const { redirect, email: lockedEmail } = parseAuthSearch(
+		useSearch({ strict: false }),
+	);
+	const target = safeRedirect(redirect);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [verificationSentTo, setVerificationSentTo] = useState<string | null>(
@@ -39,7 +47,7 @@ export function SignUpProvider({ children }: { children: ReactNode }) {
 			email: values.email,
 			password: values.password,
 			locale: getLocale(),
-			callbackURL: appURL("/"),
+			callbackURL: appURL(target),
 		});
 
 		setIsSubmitting(false);
@@ -58,7 +66,7 @@ export function SignUpProvider({ children }: { children: ReactNode }) {
 
 		const { error: signUpError } = await authClient.signIn.social({
 			provider,
-			callbackURL: appURL("/"),
+			callbackURL: appURL(target),
 		});
 
 		setIsSubmitting(false);
@@ -77,6 +85,7 @@ export function SignUpProvider({ children }: { children: ReactNode }) {
 		isSubmitting,
 		error,
 		verificationSentTo,
+		lockedEmail,
 		signUpWithPassword,
 		signUpWithSocial,
 	};

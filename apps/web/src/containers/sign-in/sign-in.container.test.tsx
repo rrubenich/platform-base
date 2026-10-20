@@ -6,7 +6,10 @@ import { SignInContainer } from "./sign-in.container";
 
 const navigate = vi.fn();
 
+let search: Record<string, unknown> = {};
+
 vi.mock("@tanstack/react-router", () => ({
+	useSearch: () => search,
 	useNavigate: () => navigate,
 	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
 		<a href={to}>{children}</a>
@@ -27,6 +30,7 @@ vi.mock("@/lib/auth-client", () => ({
 
 describe("SignInContainer", () => {
 	beforeEach(() => {
+		search = {};
 		navigate.mockReset();
 		vi.mocked(authClient.signIn.email).mockReset();
 		vi.mocked(authClient.signIn.magicLink).mockReset();
@@ -218,6 +222,114 @@ describe("SignInContainer", () => {
 					`Could not sign in with ${name}. Please try again.`,
 				),
 			).toBeInTheDocument();
+		});
+	});
+
+	describe("returning to a page", () => {
+		const invitation = {
+			redirect: "/invitations/i1",
+			email: "jane@example.com",
+		};
+		const callbackURL = `${window.location.origin}/invitations/i1`;
+
+		it("prefills the email read-only and returns after signing in", async () => {
+			search = invitation;
+			vi.mocked(authClient.signIn.email).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignInContainer />);
+
+			const email = screen.getByLabelText("Email");
+			expect(email).toHaveValue("jane@example.com");
+			expect(email).toHaveAttribute("readonly");
+
+			await userEvent.type(screen.getByLabelText("Password"), "s3cret-pass");
+			await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+			expect(authClient.signIn.email).toHaveBeenCalledWith({
+				email: "jane@example.com",
+				password: "s3cret-pass",
+				callbackURL,
+			});
+			expect(navigate).toHaveBeenCalledWith({ to: "/invitations/i1" });
+		});
+
+		it("carries the redirect through the two-factor step", async () => {
+			search = invitation;
+			vi.mocked(authClient.signIn.email).mockResolvedValue({
+				data: { twoFactorRedirect: true },
+				error: null,
+			} as never);
+
+			render(<SignInContainer />);
+
+			await userEvent.type(screen.getByLabelText("Password"), "s3cret-pass");
+			await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+			expect(navigate).toHaveBeenCalledWith({
+				to: "/two-factor",
+				search: { redirect: "/invitations/i1" },
+			});
+		});
+
+		it("uses the redirect for magic links, with the email locked", async () => {
+			search = invitation;
+			vi.mocked(authClient.signIn.magicLink).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignInContainer />);
+
+			await userEvent.click(
+				screen.getByRole("button", { name: "Email me a sign-in link" }),
+			);
+			expect(screen.getByLabelText("Email")).toHaveAttribute("readonly");
+			await userEvent.click(
+				screen.getByRole("button", { name: "Send magic link" }),
+			);
+
+			expect(authClient.signIn.magicLink).toHaveBeenCalledWith({
+				email: "jane@example.com",
+				callbackURL,
+			});
+		});
+
+		it("uses the redirect for social sign-in", async () => {
+			search = invitation;
+			vi.mocked(authClient.signIn.social).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignInContainer />);
+
+			await userEvent.click(
+				screen.getByRole("button", { name: "Sign in with Google" }),
+			);
+
+			expect(authClient.signIn.social).toHaveBeenCalledWith({
+				provider: "google",
+				callbackURL,
+			});
+		});
+
+		it("ignores an unsafe redirect", async () => {
+			search = { redirect: "https://evil.example" };
+			vi.mocked(authClient.signIn.email).mockResolvedValue({
+				data: {},
+				error: null,
+			} as never);
+
+			render(<SignInContainer />);
+
+			await userEvent.type(screen.getByLabelText("Email"), "jane@example.com");
+			await userEvent.type(screen.getByLabelText("Password"), "s3cret-pass");
+			await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+			expect(navigate).toHaveBeenCalledWith({ to: "/" });
 		});
 	});
 });

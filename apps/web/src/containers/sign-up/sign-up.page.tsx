@@ -7,6 +7,7 @@ export function SignUpPage() {
 		isSubmitting,
 		error,
 		verificationSentTo,
+		lockedEmail,
 		signUpWithPassword,
 		signUpWithSocial,
 	} = useSignUpContext();
@@ -20,6 +21,7 @@ export function SignUpPage() {
 					isSubmitting={isSubmitting}
 					error={error}
 					verificationSentTo={verificationSentTo}
+					lockedEmail={lockedEmail}
 				/>
 				<LocaleSwitcher />
 			</div>

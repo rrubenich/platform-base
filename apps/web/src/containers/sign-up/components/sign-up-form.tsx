@@ -33,6 +33,8 @@ export type SignUpFormProps = Omit<React.ComponentProps<"div">, "children"> & {
 	error?: string | null;
 	/** The address a verification email was sent to, once sign-up succeeds. */
 	verificationSentTo?: string | null;
+	/** Prefills the email and makes it read-only. */
+	lockedEmail?: string;
 };
 
 function validatePassword(password: string, confirmPassword: string) {
@@ -58,6 +60,7 @@ export function SignUpForm({
 	isSubmitting = false,
 	error,
 	verificationSentTo,
+	lockedEmail,
 	...props
 }: SignUpFormProps) {
 	const [validationError, setValidationError] = useState<string | null>(null);
@@ -135,6 +138,8 @@ export function SignUpForm({
 									type="email"
 									autoComplete="email"
 									placeholder="m@example.com"
+									defaultValue={lockedEmail}
+									readOnly={lockedEmail !== undefined}
 									required
 								/>
 							</Field>

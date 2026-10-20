@@ -6,7 +6,10 @@ import { TwoFactorContainer } from "./two-factor.container";
 
 const navigate = vi.fn();
 
+let search: Record<string, unknown> = {};
+
 vi.mock("@tanstack/react-router", () => ({
+	useSearch: () => search,
 	useNavigate: () => navigate,
 	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
 		<a href={to}>{children}</a>
@@ -30,6 +33,7 @@ const ok = { data: {}, error: null } as never;
 
 describe("TwoFactorContainer", () => {
 	beforeEach(() => {
+		search = {};
 		navigate.mockReset();
 		for (const fn of Object.values(authClient.twoFactor)) {
 			vi.mocked(fn).mockReset();
@@ -160,5 +164,17 @@ describe("TwoFactorContainer", () => {
 		expect(
 			screen.getByRole("link", { name: "Back to sign in" }),
 		).toHaveAttribute("href", "/sign-in");
+	});
+
+	it("navigates to the requested page after verifying", async () => {
+		search = { redirect: "/invitations/i1" };
+		vi.mocked(authClient.twoFactor.verifyTotp).mockResolvedValue(ok);
+
+		render(<TwoFactorContainer />);
+
+		await userEvent.type(screen.getByLabelText("Code"), "123456");
+		await userEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+		expect(navigate).toHaveBeenCalledWith({ to: "/invitations/i1" });
 	});
 });

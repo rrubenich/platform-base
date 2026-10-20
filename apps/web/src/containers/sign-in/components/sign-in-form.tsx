@@ -31,6 +31,8 @@ export type SignInFormProps = Omit<React.ComponentProps<"div">, "children"> & {
 	isSubmitting?: boolean;
 	error?: string | null;
 	magicLinkSent?: boolean;
+	/** Prefills the email and makes it read-only. */
+	lockedEmail?: string;
 };
 
 export function SignInForm({
@@ -43,6 +45,7 @@ export function SignInForm({
 	isSubmitting = false,
 	error,
 	magicLinkSent = false,
+	lockedEmail,
 	...props
 }: SignInFormProps) {
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -83,6 +86,8 @@ export function SignInForm({
 									name="email"
 									type="email"
 									placeholder="m@example.com"
+									defaultValue={lockedEmail}
+									readOnly={lockedEmail !== undefined}
 									required
 								/>
 							</Field>

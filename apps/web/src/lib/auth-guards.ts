@@ -1,5 +1,6 @@
 import { redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
+import { type AuthSearch, redirectNavigation } from "@/lib/redirect-target";
 
 type Session = NonNullable<
 	Awaited<ReturnType<typeof authClient.getSession>>["data"]
@@ -60,9 +61,13 @@ export async function requireAdmin() {
 	return { session };
 }
 
-/** `beforeLoad` guard for sign-in/sign-up: no reason to show them signed in. */
-export async function redirectIfSignedIn() {
-	if (await currentSession()) throw redirect({ to: "/" });
+/**
+ * `beforeLoad` guard for sign-in/sign-up: no reason to show them signed in.
+ * They go where they were headed (`?redirect=`), else home.
+ */
+export async function redirectIfSignedIn({ search }: { search: AuthSearch }) {
+	if (await currentSession())
+		throw redirect(redirectNavigation(search.redirect));
 }
 
 /** For tests: forget the cached permission check. */
