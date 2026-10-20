@@ -276,6 +276,10 @@
 	"email_magic_link_link": "Entrar",
 	"email_two_factor_otp_subject": "Seu código de verificação",
 	"email_two_factor_otp_body": "Seu código de verificação do Platform Base é {otp}. Ele expira em {minutes} minutos.",
+	"email_invitation_subject": "Entre em {organization} no Platform Base",
+	"email_invitation_body": "{inviter} convidou você para entrar em {organization} no Platform Base como {role}.",
+	"email_invitation_link": "Ver o convite",
+	"email_invitation_expiry": "Este convite expira em {days} dias.",
 	"auth_error_USER_NOT_FOUND": "Usuário não encontrado",
 	"auth_error_FAILED_TO_CREATE_USER": "Falha ao criar usuário",
 	"auth_error_FAILED_TO_CREATE_SESSION": "Falha ao criar sessão",
@@ -416,5 +420,6 @@
 	"auth_error_INVALID_CODE": "Código inválido",
 	"auth_error_TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Muitas tentativas. Solicite um novo código.",
 	"auth_error_ACCOUNT_TEMPORARILY_LOCKED": "Muitas tentativas de verificação falharam. Sua conta está temporariamente bloqueada. Tente novamente mais tarde.",
-	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Cookie de dois fatores inválido"
+	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Cookie de dois fatores inválido",
+	"auth_error_ALREADY_IN_AN_ORGANIZATION": "Você já faz parte de uma organização. Saia dela antes de aceitar outro convite."
 }

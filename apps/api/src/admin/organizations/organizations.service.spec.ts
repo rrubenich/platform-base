@@ -68,13 +68,26 @@ async function createUser(name: string) {
 	return id;
 }
 
-async function createOrganization(): Promise<OrganizationDetail> {
+// Each user may own only one organization, so every organization gets its
+// own owner.
+async function createOrganization(): Promise<
+	OrganizationDetail & { ownerId: string }
+> {
 	const n = ++counter;
-	return service.create({
+	const owner = await createUser(`Owner ${n}`);
+	const org = await service.create({
 		name: `Org ${n}`,
 		slug: `org-${n}`,
-		ownerUserId: ownerId,
+		ownerUserId: owner,
 	});
+	return { ...org, ownerId: owner };
+}
+
+// An organization the signed-in `ownerId` (whose session `ownerHeaders` carry)
+// also belongs to as an owner, for tests that call the plugin's own endpoints.
+async function createOrganizationWithSignedInOwner(): Promise<OrganizationDetail> {
+	const org = await createOrganization();
+	return service.addMember(org.id, { userId: ownerId, role: "owner" });
 }
 
 const memberOf = (org: OrganizationDetail, userId: string) => {
@@ -126,11 +139,11 @@ describe("OrganizationsService", () => {
 			expect(org.members).toEqual([
 				expect.objectContaining({
 					role: "owner",
-					user: expect.objectContaining({ id: ownerId }),
+					user: expect.objectContaining({ id: org.ownerId }),
 				}),
 			]);
 			expect(org.teams).toHaveLength(1);
-			expect(org.teams[0].userIds).toEqual([ownerId]);
+			expect(org.teams[0].userIds).toEqual([org.ownerId]);
 		});
 
 		it("rejects a slug that's taken", async () => {
@@ -218,7 +231,7 @@ describe("OrganizationsService", () => {
 	});
 
 	it("deletes an organization with its members and teams, clearing active sessions", async () => {
-		const org = await createOrganization();
+		const org = await createOrganizationWithSignedInOwner();
 		await orgApi.setActiveOrganization({
 			headers: ownerHeaders,
 			body: { organizationId: org.id },
@@ -259,7 +272,7 @@ describe("OrganizationsService", () => {
 
 		it("changes roles but never leaves the organization without an owner", async () => {
 			const org = await createOrganization();
-			const owner = memberOf(org, ownerId);
+			const owner = memberOf(org, org.ownerId);
 
 			await expect(
 				service.updateMemberRole(org.id, owner.id, "admin"),
@@ -274,7 +287,7 @@ describe("OrganizationsService", () => {
 				role: "owner",
 			});
 			const demoted = await service.updateMemberRole(org.id, owner.id, "admin");
-			expect(memberOf(demoted, ownerId).role).toBe("admin");
+			expect(memberOf(demoted, org.ownerId).role).toBe("admin");
 			expect(memberOf(withSecond, userId).role).toBe("owner");
 		});
 
@@ -293,9 +306,9 @@ describe("OrganizationsService", () => {
 				memberOf(withMember, userId).id,
 			);
 
-			expect(updated.members.map(({ user }) => user.id)).toEqual([ownerId]);
+			expect(updated.members.map(({ user }) => user.id)).toEqual([org.ownerId]);
 			expect(updated.teams[0]).toMatchObject({
-				userIds: [ownerId],
+				userIds: [org.ownerId],
 				memberCount: 1,
 			});
 		});
@@ -305,7 +318,7 @@ describe("OrganizationsService", () => {
 			const b = await createOrganization();
 
 			await expect(
-				service.removeMember(b.id, memberOf(a, ownerId).id),
+				service.removeMember(b.id, memberOf(a, a.ownerId).id),
 			).rejects.toMatchObject({ status: 404 });
 		});
 	});
@@ -327,7 +340,7 @@ describe("OrganizationsService", () => {
 		});
 
 		it("only adds organization members, once, keeping the count", async () => {
-			const org = await createOrganization();
+			const org = await createOrganizationWithSignedInOwner();
 			const created = await service.createTeam(org.id, "Ops");
 			const ops = created.teams.find((t) => t.name === "Ops");
 			if (!ops) throw new Error("no team");
@@ -357,7 +370,7 @@ describe("OrganizationsService", () => {
 		});
 
 		it("writes memberships the organization plugin recognizes", async () => {
-			const org = await createOrganization();
+			const org = await createOrganizationWithSignedInOwner();
 			const created = await service.createTeam(org.id, "Support");
 			const support = created.teams.find((t) => t.name === "Support");
 			if (!support) throw new Error("no team");
@@ -391,7 +404,7 @@ describe("OrganizationsService", () => {
 		});
 
 		it("computes the same membership key as the plugin", async () => {
-			const org = await createOrganization();
+			const org = await createOrganizationWithSignedInOwner();
 			const userId = await createUser("Keyed");
 			await service.addMember(org.id, { userId, role: "member" });
 			await orgApi.setActiveOrganization({

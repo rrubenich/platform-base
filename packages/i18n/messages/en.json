@@ -276,6 +276,10 @@
 	"email_magic_link_link": "Sign in",
 	"email_two_factor_otp_subject": "Your verification code",
 	"email_two_factor_otp_body": "Your Platform Base verification code is {otp}. It expires in {minutes} minutes.",
+	"email_invitation_subject": "Join {organization} on Platform Base",
+	"email_invitation_body": "{inviter} invited you to join {organization} on Platform Base as {role}.",
+	"email_invitation_link": "View the invitation",
+	"email_invitation_expiry": "This invitation expires in {days} days.",
 	"auth_error_USER_NOT_FOUND": "User not found",
 	"auth_error_FAILED_TO_CREATE_USER": "Failed to create user",
 	"auth_error_FAILED_TO_CREATE_SESSION": "Failed to create session",
@@ -416,5 +420,6 @@
 	"auth_error_INVALID_CODE": "Invalid code",
 	"auth_error_TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Please request a new code.",
 	"auth_error_ACCOUNT_TEMPORARILY_LOCKED": "Too many failed verification attempts. Your account is temporarily locked. Please try again later.",
-	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Invalid two factor cookie"
+	"auth_error_INVALID_TWO_FACTOR_COOKIE": "Invalid two factor cookie",
+	"auth_error_ALREADY_IN_AN_ORGANIZATION": "You already belong to an organization. Leave it before accepting another invitation."
 }

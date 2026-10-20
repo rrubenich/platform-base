@@ -1,8 +1,9 @@
 import { i18n } from "@better-auth/i18n";
 import { m } from "@workspace/i18n/messages";
 import { baseLocale } from "@workspace/i18n/runtime";
-import type { BetterAuthOptions } from "better-auth";
+import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
 	admin,
@@ -65,6 +66,58 @@ const IMPERSONATION_SESSION_SECONDS = 60 * 60;
 
 // How long an emailed two-factor code stays valid.
 const TWO_FACTOR_OTP_MINUTES = 5;
+
+// How long an organization invitation can be accepted.
+const INVITATION_EXPIRY_DAYS = 7;
+
+const ROLE_LABELS = {
+	owner: m.admin_member_role_owner,
+	admin: m.admin_member_role_admin,
+	member: m.admin_member_role_member,
+} as const;
+
+const escapeHtml = (value: string) =>
+	value
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;");
+
+// The organization plugin's invitation callbacks receive no Better Auth
+// context, so this plugin hands them the current request's adapter: it is set
+// by a before-hook on the two endpoints that run those callbacks.
+let organizationAdapter:
+	| {
+			findUserByEmail(
+				email: string,
+			): Promise<{ user: object } | null | undefined>;
+			findMembersByUserId(userId: string): Promise<unknown[]>;
+	  }
+	| undefined;
+
+const organizationContext = {
+	id: "organization-context",
+	hooks: {
+		before: [
+			{
+				matcher: (context) =>
+					context.path === "/organization/invite-member" ||
+					context.path === "/organization/accept-invitation",
+				handler: createAuthMiddleware(async (ctx) => {
+					const { internalAdapter, adapter } = ctx.context;
+					organizationAdapter = {
+						findUserByEmail: (email) => internalAdapter.findUserByEmail(email),
+						findMembersByUserId: (userId) =>
+							adapter.findMany({
+								model: "member",
+								where: [{ field: "userId", value: userId }],
+							}),
+					};
+				}),
+			},
+		],
+	},
+} satisfies BetterAuthPlugin;
 
 // Standard Schema validator for `user.locale`, so clients can't store a
 // locale the messages don't have.
@@ -192,7 +245,62 @@ export const authOptions: BetterAuthOptions = {
 			},
 			backupCodeOptions: { storeBackupCodes: "encrypted" },
 		}),
-		organization({ teams: { enabled: true } }),
+		organizationContext,
+		organization({
+			teams: { enabled: true },
+			// Regular users get exactly one organization, created at onboarding.
+			organizationLimit: 1,
+			invitationExpiresIn: INVITATION_EXPIRY_DAYS * 24 * 60 * 60,
+			cancelPendingInvitationsOnReInvite: true,
+			requireEmailVerificationOnInvitation: true,
+			sendInvitationEmail: async (
+				{ email, invitation, inviter, organization },
+				request,
+			) => {
+				const invitee = await organizationAdapter?.findUserByEmail(email);
+				const locale = userLocale(invitee?.user, request?.headers);
+				const roleLabel =
+					ROLE_LABELS[invitation.role as keyof typeof ROLE_LABELS];
+				const role = roleLabel ? roleLabel({}, { locale }) : invitation.role;
+				const url = `${process.env.WEB_URL ?? "http://localhost:5173"}/invitations/${invitation.id}?email=${encodeURIComponent(email)}`;
+				await sendEmail({
+					to: email,
+					subject: m.email_invitation_subject(
+						{ organization: organization.name },
+						{ locale },
+					),
+					html: [
+						`<p>${escapeHtml(
+							m.email_invitation_body(
+								{
+									inviter: inviter.user.name,
+									organization: organization.name,
+									role,
+								},
+								{ locale },
+							),
+						)}</p>`,
+						`<p><a href="${url}">${m.email_invitation_link({}, { locale })}</a></p>`,
+						`<p>${m.email_invitation_expiry({ days: INVITATION_EXPIRY_DAYS }, { locale })}</p>`,
+					].join(""),
+				});
+			},
+			organizationHooks: {
+				// One organization per user: accepting must not create a second
+				// membership (organizationLimit only guards creating one).
+				beforeAcceptInvitation: async ({ user }) => {
+					const memberships = await organizationAdapter?.findMembersByUserId(
+						user.id,
+					);
+					if (memberships?.length) {
+						throw new APIError("FORBIDDEN", {
+							code: "ALREADY_IN_AN_ORGANIZATION",
+							message: "User already belongs to an organization",
+						});
+					}
+				},
+			},
+		}),
 		admin({
 			ac,
 			roles,
