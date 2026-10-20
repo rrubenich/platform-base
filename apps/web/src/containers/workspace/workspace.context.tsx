@@ -22,6 +22,7 @@ type WorkspaceContextValue = {
 	user: WorkspaceUser | undefined;
 	can: (permissions: Record<string, string[]>) => boolean;
 	isLoading: boolean;
+	isError: boolean;
 	signOut: () => Promise<void>;
 };
 
@@ -35,7 +36,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const { data: session } = authClient.useSession();
 	const userId = session?.user.id;
 
-	const { data: organization, isLoading } = useQuery({
+	const {
+		data: organization,
+		isLoading,
+		isError,
+	} = useQuery({
 		queryKey: [...ORGANIZATION_QUERY_KEY, "full"],
 		queryFn: async () => {
 			const { data, error } =
@@ -62,6 +67,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				user: session?.user,
 				can: (permissions) => can(role, permissions),
 				isLoading,
+				isError,
 				signOut,
 			}}
 		>

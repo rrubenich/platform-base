@@ -12,6 +12,10 @@ const RECENT_MEMBERS = 5;
 
 type DashboardContextValue = {
 	isLoading: boolean;
+	/** The organization failed to load. */
+	isError: boolean;
+	/** Loading the viewer's teams failed. */
+	isTeamsError: boolean;
 	memberCount: number | undefined;
 	teamCount: number | undefined;
 	pendingInvitationCount: number | undefined;
@@ -27,10 +31,10 @@ const DashboardContext = createContext<DashboardContextValue | undefined>(
 );
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-	const { organization, isLoading, can } = useWorkspace();
+	const { organization, isLoading, isError, can } = useWorkspace();
 	const details = organization as OrganizationDetails | undefined;
 
-	const { data: myTeams } = useQuery({
+	const { data: myTeams, isError: isTeamsError } = useQuery({
 		queryKey: [...ORGANIZATION_QUERY_KEY, "my-teams"],
 		queryFn: async () => {
 			const { data, error } = await authClient.organization.listUserTeams();
@@ -50,6 +54,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 		<DashboardContext.Provider
 			value={{
 				isLoading,
+				isError: isError === true,
+				isTeamsError,
 				memberCount: details?.members.length,
 				teamCount: details ? (details.teams ?? []).length : undefined,
 				pendingInvitationCount: details?.invitations.filter(

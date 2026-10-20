@@ -78,7 +78,11 @@ function setViewer(allowed: string[]) {
 
 function renderDashboard() {
 	render(
-		<QueryClientProvider client={new QueryClient()}>
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
 			<DashboardContainer />
 		</QueryClientProvider>,
 	);
@@ -121,9 +125,12 @@ describe("DashboardContainer", () => {
 
 		const card = screen.getByText("Recent members").closest("[data-slot=card]");
 		const scope = within(card as HTMLElement);
-		for (const name of ["Gina", "Fabio", "Elena", "Diego", "Carla"]) {
-			expect(scope.getByText(name)).toBeTruthy();
-		}
+		const newestFirst = ["Gina", "Fabio", "Elena", "Diego", "Carla"];
+		expect(
+			scope
+				.getAllByRole("listitem")
+				.map((item) => within(item).getByText(/^[A-Z][a-z]+$/).textContent),
+		).toEqual(newestFirst);
 		expect(scope.queryByText("Bruno")).toBeNull();
 		expect(scope.queryByText("Anna")).toBeNull();
 		await waitFor(() =>
@@ -155,5 +162,50 @@ describe("DashboardContainer", () => {
 		await waitFor(() =>
 			expect(authClient.organization.listUserTeams).toHaveBeenCalled(),
 		);
+	});
+
+	it("shows an empty state when the viewer is on no team", async () => {
+		setViewer([]);
+		vi.mocked(authClient.organization.listUserTeams).mockResolvedValue({
+			data: [],
+			error: null,
+		} as never);
+		renderDashboard();
+
+		expect(await screen.findByText("No teams yet")).toBeTruthy();
+	});
+
+	it("shows an error instead of loading forever when the organization fails", async () => {
+		setViewer([]);
+		vi.mocked(useWorkspace).mockReturnValue({
+			organization: undefined,
+			role: undefined,
+			userId: "user-1",
+			can: () => false,
+			isLoading: false,
+			isError: true,
+		} as never);
+		renderDashboard();
+
+		expect(
+			screen.getByText("Could not load your organization. Please try again."),
+		).toBeTruthy();
+		expect(screen.queryByText("Recent members")).toBeNull();
+		await waitFor(() =>
+			expect(authClient.organization.listUserTeams).toHaveBeenCalled(),
+		);
+	});
+
+	it("shows an error in My teams when the teams fail to load", async () => {
+		setViewer([]);
+		vi.mocked(authClient.organization.listUserTeams).mockResolvedValue({
+			data: null,
+			error: { message: "boom" },
+		} as never);
+		renderDashboard();
+
+		expect(
+			await screen.findByText("Could not load your teams. Please try again."),
+		).toBeTruthy();
 	});
 });

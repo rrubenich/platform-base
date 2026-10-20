@@ -573,5 +573,7 @@
 	"dashboard_my_teams_empty_description": "You haven't been added to a team.",
 	"dashboard_recent_title": "Recent members",
 	"dashboard_recent_description": "The newest people to join.",
-	"dashboard_recent_joined": "Joined {date}"
+	"dashboard_recent_joined": "Joined {date}",
+	"dashboard_load_error": "Could not load your organization. Please try again.",
+	"dashboard_my_teams_error": "Could not load your teams. Please try again."
 }

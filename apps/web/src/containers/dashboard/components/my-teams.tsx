@@ -2,6 +2,7 @@ import { UserGroup02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import {
 	Card,
 	CardContent,
@@ -20,7 +21,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton";
 import { useDashboardContext } from "../dashboard.context";
 
 export function MyTeams() {
-	const { myTeams } = useDashboardContext();
+	const { myTeams, isTeamsError } = useDashboardContext();
 
 	return (
 		<Card>
@@ -29,7 +30,11 @@ export function MyTeams() {
 				<CardDescription>{m.dashboard_my_teams_description()}</CardDescription>
 			</CardHeader>
 			<CardContent>
-				{myTeams === undefined ? (
+				{isTeamsError ? (
+					<Alert variant="destructive">
+						<AlertDescription>{m.dashboard_my_teams_error()}</AlertDescription>
+					</Alert>
+				) : myTeams === undefined ? (
 					<Skeleton className="h-16 w-full" />
 				) : myTeams.length === 0 ? (
 					<Empty className="border">

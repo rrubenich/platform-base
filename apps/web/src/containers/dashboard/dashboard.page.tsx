@@ -2,6 +2,7 @@ import { UserAdd01Icon, UserGroup02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { buttonVariants } from "@workspace/ui/components/button";
 import { MyTeams } from "./components/my-teams";
 import { RecentMembers } from "./components/recent-members";
@@ -9,7 +10,7 @@ import { StatCards } from "./components/stat-cards";
 import { useDashboardContext } from "./dashboard.context";
 
 export function DashboardPage() {
-	const { canInvite, canCreateTeam } = useDashboardContext();
+	const { canInvite, canCreateTeam, isError } = useDashboardContext();
 
 	return (
 		<div className="flex flex-col gap-6 p-4 md:p-6">
@@ -53,10 +54,16 @@ export function DashboardPage() {
 					</div>
 				)}
 			</header>
-			<StatCards />
+			{isError ? (
+				<Alert variant="destructive">
+					<AlertDescription>{m.dashboard_load_error()}</AlertDescription>
+				</Alert>
+			) : (
+				<StatCards />
+			)}
 			<div className="grid gap-6 lg:grid-cols-2">
 				<MyTeams />
-				<RecentMembers />
+				{!isError && <RecentMembers />}
 			</div>
 		</div>
 	);

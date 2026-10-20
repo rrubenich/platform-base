@@ -573,5 +573,7 @@
 	"dashboard_my_teams_empty_description": "Você ainda não foi adicionado a uma equipe.",
 	"dashboard_recent_title": "Membros recentes",
 	"dashboard_recent_description": "As pessoas que entraram há pouco.",
-	"dashboard_recent_joined": "Entrou em {date}"
+	"dashboard_recent_joined": "Entrou em {date}",
+	"dashboard_load_error": "Não foi possível carregar sua organização. Tente novamente.",
+	"dashboard_my_teams_error": "Não foi possível carregar suas equipes. Tente novamente."
 }
