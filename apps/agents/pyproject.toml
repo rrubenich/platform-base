@@ -1,0 +1,54 @@
+[project]
+name = "agents-service"
+version = "0.1.0"
+description = "AI agents service for Platform Base (FastAPI + LangGraph), called only by apps/api"
+authors = [
+    { name = "Rafael Rubenich", email = "rfrubenich@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "arq>=0.28.0",
+    "fastapi[standard]>=0.156.1",
+    "langchain>=1.4.6",
+    "langchain-openai>=1.7.2",
+    "langgraph>=1.2.16",
+    "opentelemetry-distro>=0.66b1",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.1",
+    "opentelemetry-instrumentation-fastapi>=0.66b1",
+    "opentelemetry-instrumentation-redis>=0.66b1",
+    "pydantic-settings>=2.16.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "fakeredis>=2.40.0",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+strict = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

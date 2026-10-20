@@ -1,0 +1,16 @@
+{
+	"name": "agents",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Python (FastAPI) AI agents service. These scripts only wrap uv so Turborepo runs it with the rest of the monorepo.",
+	"scripts": {
+		"dev": "./scripts/dev.sh",
+		"start": "uv run --env-file .env opentelemetry-instrument fastapi run src/agents_service/main.py --port ${AGENTS_PORT:-8000}",
+		"start:worker": "OTEL_SERVICE_NAME=agents-worker uv run --env-file .env opentelemetry-instrument arq agents_service.worker.WorkerSettings",
+		"lint": "uv run ruff check . && uv run ruff format --check .",
+		"format": "uv run ruff format . && uv run ruff check --fix .",
+		"typecheck": "uv run pyright",
+		"test": "uv run pytest",
+		"openapi": "uv run python -m agents_service.openapi"
+	}
+}

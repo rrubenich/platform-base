@@ -59,6 +59,17 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 | `POST /api/admin/organizations/:id/teams/:teamId/members` | `team:update` | Add an organization member to a team. | 〃 |
 | `DELETE /api/admin/organizations/:id/teams/:teamId/members/:userId` | `team:update` | Remove a user from a team. | 〃 |
 
+### Agents service (`apps/agents`, internal)
+
+Not reachable from the browser: only `apps/api` calls these, with `X-Service-Token` and the caller's `X-User-Id` / `X-Organization-Id`. Its own Swagger UI is at `:8000/docs`.
+
+| Method & path | Access | Goal | Source |
+|---|---|---|---|
+| `GET /health` | Public (internal network) | Liveness probe. | `routers/health.py` |
+| `POST /v1/assistant/chat` | Service token + caller | Stream the assistant's reply as SSE. | `routers/assistant.py` |
+| `POST /v1/assistant/jobs` | Service token + caller | Queue an assistant run on the arq worker. | 〃 |
+| `GET /v1/assistant/jobs/{job_id}` | Service token + caller (same organization) | Job status and result. | 〃 |
+
 ### Better Auth (`/api/auth/*`)
 
 Served by Better Auth itself (`auth/mount-auth-handler.ts`, configured in `lib/auth.ts`), not by Nest controllers. Its own endpoints are listed under `/docs`. The groups the product relies on:
