@@ -28,7 +28,9 @@
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
 		"react-qr-code": "^2.2.0",
-		"serve": "^14.2.6"
+		"recharts": "3.8.0",
+		"serve": "^14.2.6",
+		"sonner": "^2.0.8"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4",
