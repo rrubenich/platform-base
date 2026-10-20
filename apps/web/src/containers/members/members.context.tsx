@@ -5,36 +5,22 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/containers/workspace/workspace.context";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
-import { ORGANIZATION_QUERY_KEY, type OrgRole } from "@/lib/organization";
+import {
+	ORGANIZATION_QUERY_KEY,
+	type OrganizationDetails,
+	type OrganizationInvitation,
+	type OrgRole,
+} from "@/lib/organization";
 
 type AuthResult = {
 	error?: { message?: string; status?: number } | null;
 };
 
-// The client types `getFullOrganization` loosely (`any`), so the shape this
-// feature reads is spelled out here.
-export type OrganizationMember = {
-	id: string;
-	userId: string;
-	role: string;
-	createdAt: Date | string;
-	user: { id: string; name: string; email: string; image?: string | null };
-};
-export type OrganizationInvitation = {
-	id: string;
-	email: string;
-	role?: string | null;
-	status: string;
-	teamId?: string | null;
-	expiresAt: Date | string;
-};
-export type MembersOrganization = {
-	id: string;
-	name: string;
-	members: OrganizationMember[];
-	invitations: OrganizationInvitation[];
-	teams?: { id: string; name: string }[];
-};
+export type {
+	OrganizationInvitation,
+	OrganizationMember,
+} from "@/lib/organization";
+export type MembersOrganization = OrganizationDetails;
 
 type MembersContextValue = {
 	organization: MembersOrganization | undefined;

@@ -1,5 +1,7 @@
 import {
 	DashboardSquare01Icon,
+	Settings01Icon,
+	UserGroup02Icon,
 	UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -25,7 +27,6 @@ import { NavUser } from "./nav-user";
 export function WorkspaceSidebar(props: ComponentProps<typeof Sidebar>) {
 	const { organization, user, signOut } = useWorkspace();
 
-	// Later tasks append Teams and Settings.
 	const items: NavItem[] = [
 		{
 			title: m.org_nav_dashboard(),
@@ -36,6 +37,16 @@ export function WorkspaceSidebar(props: ComponentProps<typeof Sidebar>) {
 			title: m.org_nav_members(),
 			to: "/members",
 			icon: <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />,
+		},
+		{
+			title: m.org_nav_teams(),
+			to: "/teams",
+			icon: <HugeiconsIcon icon={UserGroup02Icon} strokeWidth={2} />,
+		},
+		{
+			title: m.org_nav_settings(),
+			to: "/settings/organization",
+			icon: <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />,
 		},
 	];
 

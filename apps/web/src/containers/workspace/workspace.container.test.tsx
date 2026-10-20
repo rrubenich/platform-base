@@ -94,6 +94,14 @@ describe("WorkspaceContainer", () => {
 			"href",
 			"/members",
 		);
+		expect(screen.getByRole("link", { name: /Teams/ })).toHaveAttribute(
+			"href",
+			"/teams",
+		);
+		expect(screen.getByRole("link", { name: /Settings/ })).toHaveAttribute(
+			"href",
+			"/settings/organization",
+		);
 		expect(screen.getByText("outlet content")).toBeInTheDocument();
 	});
 
