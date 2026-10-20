@@ -1,5 +1,10 @@
 import { m } from "@workspace/i18n/messages";
 import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "@workspace/ui/components/alert";
+import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage,
@@ -12,16 +17,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@workspace/ui/components/card";
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-} from "@workspace/ui/components/alert";
 import { UserActionsMenu } from "@/components/admin/user-actions-menu";
 import { UserBadges } from "@/components/admin/user-badges";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { initials } from "@/lib/initials";
-import { useAdminUserContext, type UserDetail } from "../admin-user.context";
+import { type UserDetail, useAdminUserContext } from "../admin-user.context";
 
 function Detail({ label, value }: { label: string; value: string }) {
 	return (

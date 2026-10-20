@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -17,7 +18,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@workspace/ui/components/table";
-import { Link } from "@tanstack/react-router";
 import { UserBadges, UserIdentity } from "@/components/admin/user-badges";
 import { formatDate } from "@/lib/format";
 import { useAdminDashboardContext } from "../admin-dashboard.context";

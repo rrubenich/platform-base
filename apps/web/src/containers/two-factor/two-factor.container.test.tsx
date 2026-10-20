@@ -11,8 +11,20 @@ let search: Record<string, unknown> = {};
 vi.mock("@tanstack/react-router", () => ({
 	useSearch: () => search,
 	useNavigate: () => navigate,
-	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
-		<a href={to}>{children}</a>
+	Link: ({
+		to,
+		search,
+		children,
+	}: {
+		to: string;
+		search?: Record<string, string>;
+		children: React.ReactNode;
+	}) => (
+		<a
+			href={`${to}${search && Object.keys(search).length ? `?${new URLSearchParams(search)}` : ""}`}
+		>
+			{children}
+		</a>
 	),
 }));
 
@@ -176,5 +188,15 @@ describe("TwoFactorContainer", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Verify" }));
 
 		expect(navigate).toHaveBeenCalledWith({ to: "/invitations/i1" });
+	});
+
+	it("keeps the redirect on the link to sign-in", () => {
+		search = { redirect: "/invitations/i1" };
+
+		render(<TwoFactorContainer />);
+
+		expect(
+			screen.getByRole("link", { name: "Back to sign in" }),
+		).toHaveAttribute("href", "/sign-in?redirect=%2Finvitations%2Fi1");
 	});
 });

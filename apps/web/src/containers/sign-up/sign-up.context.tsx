@@ -9,7 +9,11 @@ import {
 import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
-import { parseAuthSearch, safeRedirect } from "@/lib/redirect-target";
+import {
+	type AuthSearch,
+	parseAuthSearch,
+	safeRedirect,
+} from "@/lib/redirect-target";
 import type { SignUpValues } from "./components/sign-up-form";
 
 type SignUpContextValue = {
@@ -18,6 +22,8 @@ type SignUpContextValue = {
 	verificationSentTo: string | null;
 	/** Locks the email field when the page was opened for a specific address. */
 	lockedEmail: string | undefined;
+	/** The redirect/email to keep when linking to the other auth pages. */
+	authSearch: AuthSearch;
 	signUpWithPassword: (values: SignUpValues) => void;
 	signUpWithSocial: (provider: SocialProvider) => void;
 };
@@ -25,9 +31,8 @@ type SignUpContextValue = {
 const SignUpContext = createContext<SignUpContextValue | undefined>(undefined);
 
 export function SignUpProvider({ children }: { children: ReactNode }) {
-	const { redirect, email: lockedEmail } = parseAuthSearch(
-		useSearch({ strict: false }),
-	);
+	const authSearch = parseAuthSearch(useSearch({ strict: false }));
+	const { redirect, email: lockedEmail } = authSearch;
 	const target = safeRedirect(redirect);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -86,6 +91,7 @@ export function SignUpProvider({ children }: { children: ReactNode }) {
 		error,
 		verificationSentTo,
 		lockedEmail,
+		authSearch,
 		signUpWithPassword,
 		signUpWithSocial,
 	};

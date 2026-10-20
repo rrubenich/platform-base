@@ -18,8 +18,8 @@ import {
 	SidebarRail,
 } from "@workspace/ui/components/sidebar";
 import type { ComponentProps } from "react";
-import { useAdminContext } from "../admin.context";
 import { type NavItem, NavMain } from "@/components/shell/nav-main";
+import { useAdminContext } from "../admin.context";
 import { NavUser } from "./nav-user";
 
 // The sidebar-07 block: collapses to icons, with collapsible groups.

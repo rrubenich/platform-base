@@ -10,6 +10,7 @@ export function SignInPage() {
 		error,
 		magicLinkSent,
 		lockedEmail,
+		authSearch,
 		signInWithPassword,
 		signInWithMagicLink,
 		signInWithSocial,
@@ -28,6 +29,7 @@ export function SignInPage() {
 					error={error}
 					magicLinkSent={magicLinkSent}
 					lockedEmail={lockedEmail}
+					authSearch={authSearch}
 				/>
 				<LocaleSwitcher />
 			</div>

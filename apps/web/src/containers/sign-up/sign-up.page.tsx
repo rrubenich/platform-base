@@ -8,6 +8,7 @@ export function SignUpPage() {
 		error,
 		verificationSentTo,
 		lockedEmail,
+		authSearch,
 		signUpWithPassword,
 		signUpWithSocial,
 	} = useSignUpContext();
@@ -22,6 +23,7 @@ export function SignUpPage() {
 					error={error}
 					verificationSentTo={verificationSentTo}
 					lockedEmail={lockedEmail}
+					authSearch={authSearch}
 				/>
 				<LocaleSwitcher />
 			</div>

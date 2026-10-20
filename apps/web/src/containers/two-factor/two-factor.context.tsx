@@ -3,7 +3,11 @@ import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
-import { parseAuthSearch, redirectNavigation } from "@/lib/redirect-target";
+import {
+	type AuthSearch,
+	parseAuthSearch,
+	redirectNavigation,
+} from "@/lib/redirect-target";
 import type { TwoFactorMethod } from "./components/two-factor-form";
 
 type TwoFactorContextValue = {
@@ -14,6 +18,8 @@ type TwoFactorContextValue = {
 	isSubmitting: boolean;
 	error: string | null;
 	otpSent: boolean;
+	/** The redirect to keep when going back to sign-in. */
+	authSearch: AuthSearch;
 	sendOtp: () => void;
 	verify: (values: { code: string }) => void;
 };
@@ -24,7 +30,8 @@ const TwoFactorContext = createContext<TwoFactorContextValue | undefined>(
 
 export function TwoFactorProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
-	const { redirect } = parseAuthSearch(useSearch({ strict: false }));
+	const authSearch = parseAuthSearch(useSearch({ strict: false }));
+	const { redirect } = authSearch;
 	const [method, setMethodState] = useState<TwoFactorMethod>("totp");
 	const [trustDevice, setTrustDevice] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,6 +99,7 @@ export function TwoFactorProvider({ children }: { children: ReactNode }) {
 		isSubmitting,
 		error,
 		otpSent,
+		authSearch,
 		sendOtp,
 		verify,
 	};

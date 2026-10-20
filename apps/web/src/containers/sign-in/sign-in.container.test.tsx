@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { SignInContainer } from "./sign-in.container";
 
@@ -11,8 +12,20 @@ let search: Record<string, unknown> = {};
 vi.mock("@tanstack/react-router", () => ({
 	useSearch: () => search,
 	useNavigate: () => navigate,
-	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
-		<a href={to}>{children}</a>
+	Link: ({
+		to,
+		search,
+		children,
+	}: {
+		to: string;
+		search?: Record<string, string>;
+		children: React.ReactNode;
+	}) => (
+		<a
+			href={`${to}${search && Object.keys(search).length ? `?${new URLSearchParams(search)}` : ""}`}
+		>
+			{children}
+		</a>
 	),
 }));
 
@@ -329,7 +342,21 @@ describe("SignInContainer", () => {
 			await userEvent.type(screen.getByLabelText("Password"), "s3cret-pass");
 			await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
+			expect(authClient.signIn.email).toHaveBeenCalledWith(
+				expect.objectContaining({ callbackURL: appURL("/") }),
+			);
 			expect(navigate).toHaveBeenCalledWith({ to: "/" });
 		});
+	});
+
+	it("keeps the redirect on the link to sign-up", () => {
+		search = { redirect: "/invitations/i1", email: "jane@example.com" };
+
+		render(<SignInContainer />);
+
+		expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+			"href",
+			"/sign-up?redirect=%2Finvitations%2Fi1&email=jane%40example.com",
+		);
 	});
 });

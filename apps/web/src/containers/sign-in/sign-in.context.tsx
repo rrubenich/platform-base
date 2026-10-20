@@ -9,6 +9,7 @@ import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
 import {
+	type AuthSearch,
 	parseAuthSearch,
 	redirectNavigation,
 	safeRedirect,
@@ -23,6 +24,8 @@ type SignInContextValue = {
 	magicLinkSent: boolean;
 	/** Locks the email field when the page was opened for a specific address. */
 	lockedEmail: string | undefined;
+	/** The redirect/email to keep when linking to the other auth pages. */
+	authSearch: AuthSearch;
 	signInWithPassword: (values: { email: string; password: string }) => void;
 	signInWithMagicLink: (values: { email: string }) => void;
 	signInWithSocial: (provider: SocialProvider) => void;
@@ -32,9 +35,8 @@ const SignInContext = createContext<SignInContextValue | undefined>(undefined);
 
 export function SignInProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
-	const { redirect, email: lockedEmail } = parseAuthSearch(
-		useSearch({ strict: false }),
-	);
+	const authSearch = parseAuthSearch(useSearch({ strict: false }));
+	const { redirect, email: lockedEmail } = authSearch;
 	const target = safeRedirect(redirect);
 	const [mode, setModeState] = useState<SignInMode>("password");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,6 +130,7 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 		error,
 		magicLinkSent,
 		lockedEmail,
+		authSearch,
 		signInWithPassword,
 		signInWithMagicLink,
 		signInWithSocial,

@@ -19,6 +19,7 @@ import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
 import type { FormEvent } from "react";
 import { type SocialProvider, SocialSignOn } from "@/components/social-sign-on";
+import type { AuthSearch } from "@/lib/redirect-target";
 
 export type SignInMode = "password" | "magic-link";
 
@@ -33,6 +34,8 @@ export type SignInFormProps = Omit<React.ComponentProps<"div">, "children"> & {
 	magicLinkSent?: boolean;
 	/** Prefills the email and makes it read-only. */
 	lockedEmail?: string;
+	/** Kept on the link to sign-up. */
+	authSearch?: AuthSearch;
 };
 
 export function SignInForm({
@@ -46,6 +49,7 @@ export function SignInForm({
 	error,
 	magicLinkSent = false,
 	lockedEmail,
+	authSearch,
 	...props
 }: SignInFormProps) {
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -146,7 +150,9 @@ export function SignInForm({
 							/>
 							<FieldDescription className="text-center">
 								{m.sign_in_no_account()}{" "}
-								<Link to="/sign-up">{m.sign_in_sign_up()}</Link>
+								<Link to="/sign-up" search={authSearch}>
+									{m.sign_in_sign_up()}
+								</Link>
 							</FieldDescription>
 						</FieldGroup>
 					</form>

@@ -8,8 +8,20 @@ let search: Record<string, unknown> = {};
 
 vi.mock("@tanstack/react-router", () => ({
 	useSearch: () => search,
-	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
-		<a href={to}>{children}</a>
+	Link: ({
+		to,
+		search,
+		children,
+	}: {
+		to: string;
+		search?: Record<string, string>;
+		children: React.ReactNode;
+	}) => (
+		<a
+			href={`${to}${search && Object.keys(search).length ? `?${new URLSearchParams(search)}` : ""}`}
+		>
+			{children}
+		</a>
 	),
 }));
 
@@ -225,5 +237,16 @@ describe("SignUpContainer", () => {
 				callbackURL: `${window.location.origin}/invitations/i1`,
 			});
 		});
+	});
+
+	it("keeps the redirect on the link to sign-in", () => {
+		search = { redirect: "/invitations/i1", email: "jane@example.com" };
+
+		render(<SignUpContainer />);
+
+		expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+			"href",
+			"/sign-in?redirect=%2Finvitations%2Fi1&email=jane%40example.com",
+		);
 	});
 });

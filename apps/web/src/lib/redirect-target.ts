@@ -8,10 +8,20 @@ export function parseAuthSearch(search: Record<string, unknown>): AuthSearch {
 	return parsed;
 }
 
-/** Only same-origin paths; anything else (absolute URLs, `//host`) goes home. */
+/**
+ * Only same-origin paths. The target is resolved the way the browser (and
+ * `appURL`) will, so `/\\host` and `/<tab>/host` tricks that end up on another
+ * origin fall back to home along with absolute URLs and `//host`.
+ */
 export function safeRedirect(target: string | undefined): string {
-	if (target?.startsWith("/") && !target.startsWith("//")) return target;
-	return "/";
+	if (!target?.startsWith("/")) return "/";
+	try {
+		const url = new URL(target, window.location.origin);
+		if (url.origin !== window.location.origin) return "/";
+		return url.pathname + url.search + url.hash;
+	} catch {
+		return "/";
+	}
 }
 
 /**

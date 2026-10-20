@@ -23,6 +23,7 @@ import {
 	MAX_PASSWORD_LENGTH,
 	MIN_PASSWORD_LENGTH,
 } from "@/lib/password-policy";
+import type { AuthSearch } from "@/lib/redirect-target";
 
 export type SignUpValues = { name: string; email: string; password: string };
 
@@ -35,6 +36,8 @@ export type SignUpFormProps = Omit<React.ComponentProps<"div">, "children"> & {
 	verificationSentTo?: string | null;
 	/** Prefills the email and makes it read-only. */
 	lockedEmail?: string;
+	/** Kept on the link to sign-in. */
+	authSearch?: AuthSearch;
 };
 
 function validatePassword(password: string, confirmPassword: string) {
@@ -61,6 +64,7 @@ export function SignUpForm({
 	error,
 	verificationSentTo,
 	lockedEmail,
+	authSearch,
 	...props
 }: SignUpFormProps) {
 	const [validationError, setValidationError] = useState<string | null>(null);
@@ -87,7 +91,9 @@ export function SignUpForm({
 	const signInLink = (
 		<FieldDescription className="text-center">
 			{m.sign_up_have_account()}{" "}
-			<Link to="/sign-in">{m.sign_up_sign_in()}</Link>
+			<Link to="/sign-in" search={authSearch}>
+				{m.sign_up_sign_in()}
+			</Link>
 		</FieldDescription>
 	);
 

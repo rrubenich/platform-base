@@ -17,6 +17,10 @@ describe("safeRedirect", () => {
 		"https://evil.example",
 		"//evil.example",
 		"javascript:alert(1)",
+		"/\\evil.example",
+		"/\t/evil.example",
+		"/\n/evil.example",
+		"",
 	])("falls back to / for %s", (target) => {
 		expect(safeRedirect(target)).toBe("/");
 	});

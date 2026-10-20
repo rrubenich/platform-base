@@ -11,6 +11,7 @@ export function TwoFactorPage() {
 		isSubmitting,
 		error,
 		otpSent,
+		authSearch,
 		sendOtp,
 		verify,
 	} = useTwoFactorContext();
@@ -28,6 +29,7 @@ export function TwoFactorPage() {
 					isSubmitting={isSubmitting}
 					error={error}
 					otpSent={otpSent}
+					authSearch={authSearch}
 				/>
 				<LocaleSwitcher />
 			</div>

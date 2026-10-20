@@ -19,6 +19,7 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
 import type { FormEvent } from "react";
+import type { AuthSearch } from "@/lib/redirect-target";
 
 export type TwoFactorMethod = "totp" | "otp" | "backup-code";
 
@@ -35,6 +36,8 @@ export type TwoFactorFormProps = Omit<
 	isSubmitting?: boolean;
 	error?: string | null;
 	otpSent?: boolean;
+	/** Kept on the link back to sign-in. */
+	authSearch?: AuthSearch;
 };
 
 const DESCRIPTIONS: Record<TwoFactorMethod, () => string> = {
@@ -61,6 +64,7 @@ export function TwoFactorForm({
 	isSubmitting = false,
 	error,
 	otpSent = false,
+	authSearch,
 	...props
 }: TwoFactorFormProps) {
 	// An emailed code has to be requested before there's anything to enter.
@@ -163,7 +167,9 @@ export function TwoFactorForm({
 									))}
 							</FieldDescription>
 							<FieldDescription className="text-center">
-								<Link to="/sign-in">{m.two_factor_back_to_sign_in()}</Link>
+								<Link to="/sign-in" search={authSearch}>
+									{m.two_factor_back_to_sign_in()}
+								</Link>
 							</FieldDescription>
 						</FieldGroup>
 					</form>
