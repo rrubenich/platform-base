@@ -12,7 +12,7 @@ import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { Fragment } from "react";
 import { useBreadcrumbs } from "@/lib/breadcrumbs";
 
-export function AdminHeader() {
+export function AppHeader() {
 	const breadcrumbs = useBreadcrumbs();
 
 	return (

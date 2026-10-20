@@ -1,7 +1,6 @@
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { m } from "@workspace/i18n/messages";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -42,13 +41,13 @@ function isCurrent(
 	);
 }
 
-export function NavMain({ items }: { items: NavItem[] }) {
+export function NavMain({ label, items }: { label: string; items: NavItem[] }) {
 	const location = useRouterState({ select: (state) => state.location });
 	const current = { pathname: location.pathname, search: location.search };
 
 	return (
 		<SidebarGroup>
-			<SidebarGroupLabel>{m.admin_nav_label()}</SidebarGroupLabel>
+			<SidebarGroupLabel>{label}</SidebarGroupLabel>
 			<SidebarMenu>
 				{items.map((item) =>
 					item.items ? (

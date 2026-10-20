@@ -19,7 +19,7 @@ import {
 } from "@workspace/ui/components/sidebar";
 import type { ComponentProps } from "react";
 import { useAdminContext } from "../admin.context";
-import { type NavItem, NavMain } from "./nav-main";
+import { type NavItem, NavMain } from "@/components/shell/nav-main";
 import { NavUser } from "./nav-user";
 
 // The sidebar-07 block: collapses to icons, with collapsible groups.
@@ -77,7 +77,7 @@ export function AdminSidebar(props: ComponentProps<typeof Sidebar>) {
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
-				<NavMain items={items} />
+				<NavMain label={m.admin_nav_label()} items={items} />
 			</SidebarContent>
 			<SidebarFooter>
 				{user && <NavUser user={user} onSignOut={signOut} />}
