@@ -1,9 +1,9 @@
 import { NestFactory } from "@nestjs/core";
 import type { OpenAPIObject } from "@nestjs/swagger";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { toNodeHandler } from "better-auth/node";
 import { json } from "express";
 import { AppModule } from "./app.module.js";
+import { mountAuthHandler } from "./auth/mount-auth-handler.js";
 import { auth } from "./lib/auth.js";
 
 // `auth` is typed against the generic `BetterAuthOptions` (see lib/auth.ts)
@@ -31,7 +31,7 @@ async function bootstrap() {
 		origin: process.env.WEB_URL ?? "http://localhost:5173",
 		credentials: true,
 	});
-	app.use("/api/auth/*splat", toNodeHandler(auth));
+	mountAuthHandler(app, auth);
 	app.use(json());
 
 	app.setGlobalPrefix("api");
