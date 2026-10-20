@@ -30,6 +30,19 @@ export type OrganizationInvitation = {
 	teamId?: string | null;
 	expiresAt: Date | string;
 };
+/**
+ * Better Auth leaves an expired invitation's status as "pending", so the
+ * expiry date decides whether it can still be accepted.
+ */
+export function isPendingInvitation(
+	invitation: { status: string; expiresAt: Date | string },
+	now: Date = new Date(),
+) {
+	return (
+		invitation.status === "pending" && new Date(invitation.expiresAt) > now
+	);
+}
+
 export type OrganizationTeam = {
 	id: string;
 	name: string;

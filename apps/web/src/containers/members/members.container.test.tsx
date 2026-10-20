@@ -59,7 +59,15 @@ const ORGANIZATION = {
 			role: "admin",
 			status: "pending",
 			teamId: "t1",
-			expiresAt: "2026-10-30T00:00:00.000Z",
+			expiresAt: "2100-01-01T00:00:00.000Z",
+		},
+		{
+			id: "inv-3",
+			email: "erin@example.com",
+			role: "member",
+			status: "pending",
+			teamId: null,
+			expiresAt: "2020-01-01T00:00:00.000Z",
 		},
 		{
 			id: "inv-2",
@@ -67,7 +75,7 @@ const ORGANIZATION = {
 			role: "member",
 			status: "accepted",
 			teamId: null,
-			expiresAt: "2026-10-30T00:00:00.000Z",
+			expiresAt: "2100-01-01T00:00:00.000Z",
 		},
 	],
 	teams: [{ id: "t1", name: "Design" }],
@@ -285,12 +293,13 @@ describe("MembersContainer", () => {
 			search = { tab: "invitations" };
 		});
 
-		it("lists pending invitations only", () => {
+		it("lists pending invitations only, leaving out expired ones", () => {
 			renderMembers();
 
 			expect(screen.getByText("carol@example.com")).toBeInTheDocument();
 			expect(screen.getByText("Design")).toBeInTheDocument();
 			expect(screen.queryByText("dave@example.com")).toBeNull();
+			expect(screen.queryByText("erin@example.com")).toBeNull();
 		});
 
 		it("resends an invitation", async () => {

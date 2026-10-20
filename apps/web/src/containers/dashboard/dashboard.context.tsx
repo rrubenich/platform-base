@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useContext } from "react";
 import { useWorkspace } from "@/containers/workspace/workspace.context";
 import { authClient } from "@/lib/auth-client";
 import {
+	isPendingInvitation,
 	ORGANIZATION_QUERY_KEY,
 	type OrganizationDetails,
 	type OrganizationMember,
@@ -56,8 +57,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 				isTeamsError,
 				memberCount: details?.members.length,
 				teamCount: details ? (details.teams ?? []).length : undefined,
-				pendingInvitationCount: details?.invitations.filter(
-					({ status }) => status === "pending",
+				pendingInvitationCount: details?.invitations.filter((invitation) =>
+					isPendingInvitation(invitation),
 				).length,
 				myTeams,
 				recentMembers,

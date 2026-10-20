@@ -11,7 +11,10 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
-import { ORGANIZATION_QUERY_KEY } from "@/lib/organization";
+import {
+	isPendingInvitation,
+	ORGANIZATION_QUERY_KEY,
+} from "@/lib/organization";
 import { useSignOut } from "@/lib/sign-out";
 
 export type PendingInvitation = {
@@ -88,7 +91,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 				await authClient.organization.listUserInvitations();
 			if (error) throw new Error(error.message);
 			return (data ?? [])
-				.filter((invitation) => invitation.status === "pending")
+				.filter((invitation) => isPendingInvitation(invitation))
 				.map(
 					(invitation): PendingInvitation => ({
 						id: invitation.id,

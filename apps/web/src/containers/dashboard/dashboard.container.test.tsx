@@ -52,9 +52,10 @@ const ORGANIZATION = {
 	name: "Acme Inc",
 	members: NAMES.map((name, index) => member(index + 1, name)),
 	invitations: [
-		{ id: "i1", email: "a@x.com", status: "pending", expiresAt: "2026-12-01" },
-		{ id: "i2", email: "b@x.com", status: "pending", expiresAt: "2026-12-01" },
-		{ id: "i3", email: "c@x.com", status: "accepted", expiresAt: "2026-12-01" },
+		{ id: "i1", email: "a@x.com", status: "pending", expiresAt: "2100-01-01" },
+		{ id: "i2", email: "b@x.com", status: "pending", expiresAt: "2100-01-01" },
+		{ id: "i3", email: "c@x.com", status: "accepted", expiresAt: "2100-01-01" },
+		{ id: "i4", email: "d@x.com", status: "pending", expiresAt: "2020-01-01" },
 	],
 	teams: [
 		{ id: "t1", name: "Design", memberCount: 3 },
@@ -96,7 +97,7 @@ describe("DashboardContainer", () => {
 		} as never);
 	});
 
-	it("shows the member, team and pending invitation counts", async () => {
+	it("shows the member, team and unexpired pending invitation counts", async () => {
 		setViewer([]);
 		renderDashboard();
 

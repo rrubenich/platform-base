@@ -146,12 +146,21 @@ describe("OnboardingContainer", () => {
 						organizationName: "Globex",
 						role: "admin",
 						status: "pending",
+						expiresAt: "2100-01-01T00:00:00.000Z",
+					},
+					{
+						id: "inv3",
+						organizationName: "Expired Inc",
+						role: "member",
+						status: "pending",
+						expiresAt: "2020-01-01T00:00:00.000Z",
 					},
 					{
 						id: "inv2",
 						organizationName: "Old Co",
 						role: "member",
 						status: "canceled",
+						expiresAt: "2100-01-01T00:00:00.000Z",
 					},
 				],
 				error: null,
@@ -168,6 +177,7 @@ describe("OnboardingContainer", () => {
 			expect(await screen.findByText("Globex")).toBeVisible();
 			expect(screen.getByText(m.onboarding_role_admin())).toBeVisible();
 			expect(screen.queryByText("Old Co")).not.toBeInTheDocument();
+			expect(screen.queryByText("Expired Inc")).not.toBeInTheDocument();
 
 			await userEvent.click(
 				screen.getByRole("button", { name: m.onboarding_invitation_accept() }),

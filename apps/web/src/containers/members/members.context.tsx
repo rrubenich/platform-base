@@ -1,20 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext } from "react";
-import { toast } from "sonner";
 import { useWorkspace } from "@/containers/workspace/workspace.context";
 import { authClient } from "@/lib/auth-client";
-import { authErrorMessage } from "@/lib/auth-error";
 import {
-	ORGANIZATION_QUERY_KEY,
+	isPendingInvitation,
 	type OrganizationDetails,
 	type OrganizationInvitation,
 	type OrgRole,
 } from "@/lib/organization";
-
-type AuthResult = {
-	error?: { message?: string; status?: number } | null;
-};
+import { useOrganizationAction } from "@/lib/use-organization-action";
 
 export type {
 	OrganizationInvitation,
@@ -24,6 +18,8 @@ export type MembersOrganization = OrganizationDetails;
 
 type MembersContextValue = {
 	organization: MembersOrganization | undefined;
+	/** Invitations that can still be accepted (pending and not expired). */
+	pendingInvitations: OrganizationInvitation[];
 	isLoading: boolean;
 	userId: string | undefined;
 	viewerRole: OrgRole | undefined;
@@ -47,53 +43,23 @@ const MembersContext = createContext<MembersContextValue | undefined>(
 
 export function MembersProvider({ children }: { children: ReactNode }) {
 	const { organization, isLoading, userId, role, can } = useWorkspace();
-	const queryClient = useQueryClient();
+	const { submit, fire, isPending } = useOrganizationAction();
+	const details = organization as MembersOrganization | undefined;
 
-	const mutation = useMutation({
-		mutationFn: async ({
-			request,
-		}: {
-			request: () => Promise<AuthResult>;
-			success: string;
-		}) => {
-			const { error } = await request();
-			if (error) {
-				throw Object.assign(new Error(error.message), {
-					status: error.status,
-				});
-			}
-		},
-		onSuccess: async (_data, { success }) => {
-			toast.success(success);
-			await queryClient.invalidateQueries({ queryKey: ORGANIZATION_QUERY_KEY });
-		},
-	});
-
-	/** For the dialog: the error comes back to show inline. */
-	const submit = (
-		request: () => Promise<AuthResult>,
-		success: string,
-		fallback: string,
-	) =>
-		mutation.mutateAsync({ request, success }).then(
-			() => null,
-			(error: { status?: number; message?: string }) =>
-				authErrorMessage(error, fallback),
-		);
-
-	/** For one-click actions: the error is toasted. */
-	const fire = (request: () => Promise<AuthResult>, success: string) =>
-		void submit(request, success, m.members_action_error()).then((error) => {
-			if (error) toast.error(error);
-		});
+	const act = (request: Parameters<typeof fire>[0], success: string) =>
+		fire(request, { success, fallback: m.members_action_error() });
 
 	const value: MembersContextValue = {
-		organization: organization as MembersOrganization | undefined,
+		organization: details,
+		pendingInvitations:
+			details?.invitations.filter((invitation) =>
+				isPendingInvitation(invitation),
+			) ?? [],
 		isLoading,
 		userId,
 		viewerRole: role,
 		can,
-		isPending: mutation.isPending,
+		isPending,
 		invite: ({ email, role: inviteRole, teamId }) =>
 			submit(
 				() =>
@@ -102,11 +68,13 @@ export function MembersProvider({ children }: { children: ReactNode }) {
 						role: inviteRole,
 						teamId,
 					}),
-				m.members_toast_invited(),
-				m.members_invite_error(),
+				{
+					success: m.members_toast_invited(),
+					fallback: m.members_invite_error(),
+				},
 			),
 		resend: (invitation) =>
-			fire(
+			act(
 				() =>
 					authClient.organization.inviteMember({
 						email: invitation.email,
@@ -117,12 +85,12 @@ export function MembersProvider({ children }: { children: ReactNode }) {
 				m.members_toast_resent(),
 			),
 		cancel: (invitationId) =>
-			fire(
+			act(
 				() => authClient.organization.cancelInvitation({ invitationId }),
 				m.members_toast_cancelled(),
 			),
 		updateRole: (memberId, newRole) =>
-			fire(
+			act(
 				() =>
 					authClient.organization.updateMemberRole({
 						memberId,
@@ -131,7 +99,7 @@ export function MembersProvider({ children }: { children: ReactNode }) {
 				m.members_toast_role_updated(),
 			),
 		remove: (memberId) =>
-			fire(
+			act(
 				() =>
 					authClient.organization.removeMember({ memberIdOrEmail: memberId }),
 				m.members_toast_removed(),

@@ -17,7 +17,8 @@ import { MembersTable } from "./components/members-table";
 import { useMembersContext } from "./members.context";
 
 export function MembersPage() {
-	const { organization, isLoading, can } = useMembersContext();
+	const { organization, isLoading, can, pendingInvitations } =
+		useMembersContext();
 	const search = useSearch({ from: "/_workspace/members" });
 	const navigate = useNavigate({ from: "/members" });
 	const [buttonOpen, setButtonOpen] = useState(false);
@@ -26,9 +27,7 @@ export function MembersPage() {
 	// because `can` is false while the organization loads.
 	const inviteOpen = (search.invite === 1 || buttonOpen) && canInvite;
 
-	const pendingCount =
-		organization?.invitations.filter(({ status }) => status === "pending")
-			.length ?? 0;
+	const pendingCount = pendingInvitations.length;
 
 	return (
 		<div className="flex flex-col gap-6 p-4 md:p-6">

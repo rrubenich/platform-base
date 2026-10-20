@@ -23,14 +23,13 @@ import { useMembersContext } from "../members.context";
 
 /** Pending invitations only: accepted, rejected and expired ones are history. */
 export function InvitationsTable() {
-	const { organization, can, isPending, resend, cancel } = useMembersContext();
+	const { organization, pendingInvitations, can, isPending, resend, cancel } =
+		useMembersContext();
 	const canResend = can({ invitation: ["create"] });
 	const canCancel = can({ invitation: ["cancel"] });
 	const showActions = canResend || canCancel;
 
-	const invitations =
-		organization?.invitations.filter(({ status }) => status === "pending") ??
-		[];
+	const invitations = pendingInvitations;
 	const teamName = (teamId: string | null | undefined) =>
 		organization?.teams?.find(({ id }) => id === teamId)?.name ?? "—";
 
