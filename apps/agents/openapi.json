@@ -222,7 +222,7 @@
     },
     "/v1/assistant/chat": {
       "post": {
-        "description": "Events: `delta` (`{text}`) as the reply is written, then `done` or `error` (`{code, message}`).",
+        "description": "Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).",
         "operationId": "chat_v1_assistant_chat_post",
         "requestBody": {
           "content": {
@@ -375,6 +375,68 @@
         "summary": "A background job's status and result",
         "tags": [
           "assistant"
+        ]
+      }
+    },
+    "/v1/docs/chat": {
+      "post": {
+        "description": "Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).",
+        "operationId": "chat_v1_docs_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask how Platform Base is built, answered from the project's docs (SSE)",
+        "tags": [
+          "docs"
         ]
       }
     }

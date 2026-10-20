@@ -190,17 +190,18 @@ Color tokens live in `packages/ui/src/styles/globals.css` (`:root` / `.dark`), s
 
 ## Agents service (`apps/agents`)
 
-Python FastAPI service that runs the AI agents. Look at `src/agents_service/agents/assistant.py` as the reference agent.
+Python FastAPI service that runs the AI agents. Look at `src/agents_service/agents/assistant.py` as the reference agent, and `agents/docs.py` (the admin console's docs assistant) for one with tools.
 
 ### How it fits
 
 ```
 web ──► apps/api  /api/agents/*  ──► apps/agents  /v1/*   (internal, never exposed)
-          AuthGuard + active-org         Authorization: Bearer <60s EdDSA JWT>
-          membership check, signs JWT    verified with the public key → sub (user), org
+          AuthGuard + permission or      Authorization: Bearer <60s EdDSA JWT>
+          active-org check, signs JWT    verified with the public key → sub, org, scope
 ```
 
-- **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with a JWT naming the caller: `sub` = user id, `org` = organization id, `iss` `platform-base-api`, `aud` `platform-base-agents`, valid for 60 seconds. `AgentsService` signs it with `AGENTS_JWT_PRIVATE_KEY` (Ed25519); `apps/agents` only has the public key (`AGENTS_JWT_PUBLIC_KEY`), so it can verify tokens but never mint one. The token is checked when a request starts; a chat stream may then outlive it.
+- **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with a JWT naming the caller: `sub` = user id, `org` = organization id (absent for platform-level agents), `scope` = the agent it is for, `iss` `platform-base-api`, `aud` `platform-base-agents`, valid for 60 seconds. `AgentsService` signs it with `AGENTS_JWT_PRIVATE_KEY` (Ed25519); `apps/agents` only has the public key (`AGENTS_JWT_PUBLIC_KEY`), so it can verify tokens but never mint one. The token is checked when a request starts; a chat stream may then outlive it.
+- **Scopes:** each router requires its agent's scope (`require_scope("docs")`, 403 otherwise), so a token minted for one agent can't reach another. `apps/api` decides who gets which scope: `assistant` goes to members of the active organization (`/api/agents/assistant/*`), `docs` to roles with the `docs-assistant:use` permission (admins, `/api/admin/docs-assistant/chat`). Agents that act inside an organization also call `as_member(caller)`, which rejects tokens without `org`.
 - **Network:** `apps/agents` takes no traffic from the internet, only from `apps/api` over the private network. It still needs outbound access to the LLM provider's API. The JWT is a second layer on top of that isolation, not a replacement for it.
 - **Rotating the key pair:** generate a new pair (see `apps/api/.env.example`) and deploy both halves together. `apps/agents` accepts a single public key, so calls fail between the two deploys; accepting several keys (by `kid`) is the follow-up if rotation must be seamless.
 - **Interactive agents** stream over SSE (`fastapi.sse.EventSourceResponse`); `apps/api` pipes the stream through unchanged and aborts it when the browser disconnects.
@@ -214,11 +215,11 @@ apps/agents/
     main.py          # FastAPI app; lifespan creates the shared Redis pool
     config.py        # pydantic-settings, every env var
     llm.py           # the one place the chat model is created, from LLM_MODEL
-    auth.py          # verifies apps/api's JWT → the caller (user + organization)
+    auth.py          # verifies apps/api's JWT → the caller (user, organization, scopes)
     dependencies.py  # shared settings, chat model and job queue
     jobs.py          # job queue (arq) with per-organization visibility
     worker.py        # arq WorkerSettings: one function per background agent
-    agents/          # one module per agent: LangGraph graph (`build`) + stream/run functions
+    agents/          # one module per agent (LangGraph `build`); chat.py streams any graph as SSE events
     routers/         # HTTP routes, one router per agent
   tests/             # pytest; real graphs on LangChain's fake chat model, fake queue (see conftest.py)
   openapi.json       # committed schema apps/api generates its types from
@@ -227,9 +228,11 @@ apps/agents/
 ### Adding an agent
 
 1. Write `agents/<name>.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
-2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(get_caller)]` (from `auth.py`; take `CallerDep` in routes that need the user or organization) and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
+2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(require_scope("<name>"))]` (from `auth.py`; `as_member` when it needs the organization), stream with `chat.stream_graph(build(model), body.messages)`, and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
 3. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
-4. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method) and add the rows to `docs/routes.md`.
+4. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method signing a token with the new scope; `proxyEventStream` in `event-stream.ts` pipes SSE) and add the rows to `docs/routes.md`.
+
+**The docs assistant** reads Markdown from `DOCS_ROOT` (default: the repository root of this checkout): `AGENTS.md`, `README.md`, `docs/**/*.md` and `apps/*/README.md`, nothing else (`DocsLibrary` allowlist, so it can't read `.env` or code). Its answers are only as current as those docs; a deployment must ship them next to the service and set `DOCS_ROOT`.
 
 **Switching the LLM** is configuration only: set `LLM_MODEL` to another LangChain `"<provider>:<model>"` id (e.g. `anthropic:claude-opus-5-5`), add that provider's integration (`uv add langchain-anthropic`) and its API key. Only `langchain-openai` is installed by default. Provider-specific options (reasoning effort, etc.) go in `llm.chat_model`, not in agents. Errors differ per provider, so agents treat any model failure the same way (logged, reported as `model_error`).
 

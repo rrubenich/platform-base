@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -11,7 +12,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.outputs import ChatGenerationChunk
 
 # apps/api's signing key, generated per test run. Settings are read on first
 # use, so the public half is in the env before any app module is imported.
@@ -25,8 +27,9 @@ os.environ["AGENTS_JWT_PUBLIC_KEY"] = (
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
 
+from agents_service.auth import MemberCaller  # noqa: E402
 from agents_service.dependencies import get_chat_model, get_job_queue  # noqa: E402
-from agents_service.jobs import Caller, JobView  # noqa: E402
+from agents_service.jobs import JobView  # noqa: E402
 from agents_service.main import create_app  # noqa: E402
 
 
@@ -38,6 +41,7 @@ def make_token(key: Ed25519PrivateKey = SIGNING_KEY, **overrides: Any) -> str:
         "aud": "platform-base-agents",
         "sub": "user-1",
         "org": "org-1",
+        "scope": "assistant",
         "iat": now,
         "exp": now + 60,
     }
@@ -53,6 +57,34 @@ def bearer(token: str) -> dict[str, str]:
 AUTH = bearer(make_token())
 
 
+class ToolCallingFakeModel(GenericFakeChatModel):
+    """Plays back scripted messages, tool calls included, like a real model
+    that supports tools (GenericFakeChatModel refuses `bind_tools`)."""
+
+    def bind_tools(self, tools: Any, **kwargs: Any) -> "ToolCallingFakeModel":
+        return self
+
+    def _stream(self, *args: Any, **kwargs: Any) -> Iterator[ChatGenerationChunk]:
+        # The parent splits text into tokens and drops messages that only
+        # carry tool calls; one chunk per scripted message keeps both.
+        message = next(self.messages)
+        assert isinstance(message, AIMessage)
+        yield ChatGenerationChunk(
+            message=AIMessageChunk(
+                content=message.content,
+                tool_call_chunks=[
+                    {
+                        "name": call["name"],
+                        "args": json.dumps(call["args"]),
+                        "id": call["id"],
+                        "index": index,
+                    }
+                    for index, call in enumerate(getattr(message, "tool_calls", []))
+                ],
+            )
+        )
+
+
 class FailingChatModel(GenericFakeChatModel):
     """A chat model whose provider call always fails, e.g. a bad API key."""
 
@@ -63,18 +95,18 @@ class FailingChatModel(GenericFakeChatModel):
 
 @dataclass
 class FakeQueue:
-    jobs: dict[str, tuple[Caller, JobView]] = field(
-        default_factory=dict[str, tuple[Caller, JobView]]
+    jobs: dict[str, tuple[MemberCaller, JobView]] = field(
+        default_factory=dict[str, tuple[MemberCaller, JobView]]
     )
-    enqueued: list[tuple[str, Caller, dict[str, Any]]] = field(
-        default_factory=list[tuple[str, Caller, dict[str, Any]]]
+    enqueued: list[tuple[str, MemberCaller, dict[str, Any]]] = field(
+        default_factory=list[tuple[str, MemberCaller, dict[str, Any]]]
     )
 
-    async def enqueue(self, agent: str, caller: Caller, **inputs: Any) -> str:
+    async def enqueue(self, agent: str, caller: MemberCaller, **inputs: Any) -> str:
         self.enqueued.append((agent, caller, inputs))
         return "job-1"
 
-    async def get(self, job_id: str, caller: Caller) -> JobView | None:
+    async def get(self, job_id: str, caller: MemberCaller) -> JobView | None:
         owner, view = self.jobs.get(job_id, (None, None))
         if owner is None or owner.organization_id != caller.organization_id:
             return None

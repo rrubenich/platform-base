@@ -24,6 +24,20 @@ export type JobView = Schemas["JobView"];
 /** Who apps/agents is told is calling. It trusts this, so it must be checked. */
 export type AgentCaller = { userId: string; organizationId: string };
 
+/**
+ * Which agent a token is for. apps/agents rejects a token on any other
+ * agent's routes, so each controller decides who may reach which agent:
+ * `assistant` for organization members, `docs` for superadmins.
+ */
+export type AgentScope = "assistant" | "docs";
+
+type TokenSubject = {
+	userId: string;
+	/** Absent for platform-level agents; superadmins have no organization. */
+	organizationId?: string;
+	scope: AgentScope;
+};
+
 // Must match ISSUER / AUDIENCE in apps/agents/src/agents_service/auth.py.
 export const AGENTS_JWT_ISSUER = "platform-base-api";
 export const AGENTS_JWT_AUDIENCE = "platform-base-agents";
@@ -33,9 +47,10 @@ const AGENTS_JWT_TTL = "60s";
 
 /**
  * Client for the internal Python agents service (apps/agents). Each call
- * carries a short-lived EdDSA JWT naming the caller's user (`sub`) and
- * organization (`org`), signed with AGENTS_JWT_PRIVATE_KEY; the agents
- * service only holds the public key, and never sees the user's session.
+ * carries a short-lived EdDSA JWT naming the caller's user (`sub`), their
+ * organization (`org`, when there is one) and the agent it may reach
+ * (`scope`), signed with AGENTS_JWT_PRIVATE_KEY; the agents service only
+ * holds the public key, and never sees the user's session.
  */
 @Injectable()
 export class AgentsService {
@@ -89,7 +104,23 @@ export class AgentsService {
 		return this.send(
 			"/v1/assistant/chat",
 			{ method: "POST", body: JSON.stringify(body), signal },
-			caller,
+			{ ...caller, scope: "assistant" },
+		);
+	}
+
+	/**
+	 * The docs assistant's SSE response, like `chat`. Only for superadmins
+	 * (the controller checks the permission), so no organization is involved.
+	 */
+	docsChat(
+		userId: string,
+		body: ChatRequest,
+		signal: AbortSignal,
+	): Promise<Response> {
+		return this.send(
+			"/v1/docs/chat",
+			{ method: "POST", body: JSON.stringify(body), signal },
+			{ userId, scope: "docs" },
 		);
 	}
 
@@ -97,7 +128,7 @@ export class AgentsService {
 		const response = await this.send(
 			"/v1/assistant/jobs",
 			{ method: "POST", body: JSON.stringify(body) },
-			caller,
+			{ ...caller, scope: "assistant" },
 		);
 		return (await response.json()) as JobCreated;
 	}
@@ -106,7 +137,7 @@ export class AgentsService {
 		const response = await this.send(
 			`/v1/assistant/jobs/${encodeURIComponent(jobId)}`,
 			{ method: "GET" },
-			caller,
+			{ ...caller, scope: "assistant" },
 		);
 		return (await response.json()) as JobView;
 	}
@@ -114,7 +145,7 @@ export class AgentsService {
 	private async send(
 		path: string,
 		init: RequestInit,
-		caller?: AgentCaller,
+		subject?: TokenSubject,
 	): Promise<Response> {
 		// Read per call, not at boot, so the API still starts (and its e2e
 		// suite runs) on machines that don't run the agents service.
@@ -123,8 +154,8 @@ export class AgentsService {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 		};
-		if (caller) {
-			headers.Authorization = `Bearer ${await this.tokenFor(caller)}`;
+		if (subject) {
+			headers.Authorization = `Bearer ${await this.tokenFor(subject)}`;
 		}
 
 		let response: Response;
@@ -145,17 +176,20 @@ export class AgentsService {
 		return response;
 	}
 
-	private async tokenFor(caller: AgentCaller): Promise<string> {
+	private async tokenFor(subject: TokenSubject): Promise<string> {
 		// Imported once, on the first call that needs it (see `send`).
 		this.signingKey ??= importPKCS8(
 			this.config.getOrThrow<string>("AGENTS_JWT_PRIVATE_KEY"),
 			"EdDSA",
 		);
-		return new SignJWT({ org: caller.organizationId })
+		const { userId, organizationId, scope } = subject;
+		return new SignJWT(
+			organizationId ? { org: organizationId, scope } : { scope },
+		)
 			.setProtectedHeader({ alg: "EdDSA" })
 			.setIssuer(AGENTS_JWT_ISSUER)
 			.setAudience(AGENTS_JWT_AUDIENCE)
-			.setSubject(caller.userId)
+			.setSubject(userId)
 			.setIssuedAt()
 			.setExpirationTime(AGENTS_JWT_TTL)
 			.sign(await this.signingKey);

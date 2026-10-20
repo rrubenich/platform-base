@@ -1,45 +1,43 @@
 from collections.abc import AsyncIterator
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from ..agents import assistant
-from ..auth import CallerDep, get_caller
+from ..agents.chat import CHAT_EVENTS_DESCRIPTION, ChatRequest, stream_graph
+from ..auth import Caller, MemberCaller, as_member, require_scope
 from ..dependencies import ChatModelDep, JobQueueDep
 from ..jobs import JobView
 
 router = APIRouter(
     prefix="/v1/assistant",
     tags=["assistant"],
-    # Every route needs a valid token from apps/api.
-    dependencies=[Depends(get_caller)],
+    # Every route needs a token apps/api issued for this agent.
+    dependencies=[Depends(require_scope("assistant"))],
 )
 
 
-class ChatRequest(BaseModel):
-    messages: list[assistant.ChatMessage] = Field(min_length=1)
+def member(
+    caller: Annotated[Caller, Depends(require_scope("assistant"))],
+) -> MemberCaller:
+    return as_member(caller)
 
-    @model_validator(mode="after")
-    def ends_with_user(self) -> "ChatRequest":
-        if self.messages[-1].role != "user":
-            raise ValueError("the last message must be from the user")
-        return self
+
+MemberDep = Annotated[MemberCaller, Depends(member)]
 
 
 @router.post(
     "/chat",
     response_class=EventSourceResponse,
     summary="Chat with the assistant, streamed as server-sent events",
-    description=(
-        "Events: `delta` (`{text}`) as the reply is written, then `done` "
-        "or `error` (`{code, message}`)."
-    ),
+    description=CHAT_EVENTS_DESCRIPTION,
 )
 async def chat(
-    body: ChatRequest, model: ChatModelDep
+    body: ChatRequest, model: ChatModelDep, _caller: MemberDep
 ) -> AsyncIterator[ServerSentEvent]:
-    async for event in assistant.stream_reply(model, body.messages):
+    async for event in stream_graph(assistant.build(model), body.messages):
         yield ServerSentEvent(event=event.type, data=event)
 
 
@@ -57,7 +55,7 @@ class JobCreated(BaseModel):
     summary="Run the assistant in the background",
 )
 async def create_job(
-    body: JobRequest, caller: CallerDep, queue: JobQueueDep
+    body: JobRequest, caller: MemberDep, queue: JobQueueDep
 ) -> JobCreated:
     job_id = await queue.enqueue("run_assistant", caller, prompt=body.prompt)
     return JobCreated(id=job_id)
@@ -68,7 +66,7 @@ async def create_job(
     summary="A background job's status and result",
     responses={404: {"description": "No such job in the caller's organization"}},
 )
-async def get_job(job_id: str, caller: CallerDep, queue: JobQueueDep) -> JobView:
+async def get_job(job_id: str, caller: MemberDep, queue: JobQueueDep) -> JobView:
     job = await queue.get(job_id, caller)
     if job is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found")

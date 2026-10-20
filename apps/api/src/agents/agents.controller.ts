@@ -1,5 +1,3 @@
-import { Readable } from "node:stream";
-import type { ReadableStream } from "node:stream/web";
 import {
 	Body,
 	Controller,
@@ -28,12 +26,13 @@ import type { Response } from "express";
 import { CurrentSession } from "../auth/auth.decorators.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import type { Session } from "../lib/auth.js";
-import { ChatDto, CreateJobDto } from "./agents.dto.js";
+import { AGENT_CHAT_EVENTS, ChatDto, CreateJobDto } from "./agents.dto.js";
 import {
 	AgentsService,
 	type JobCreated,
 	type JobView,
 } from "./agents.service.js";
+import { proxyEventStream } from "./event-stream.js";
 
 // Public face of the assistant agent in apps/agents. Any member of the
 // session's active organization can use it; the agents service only sees the
@@ -60,8 +59,7 @@ export class AgentsController {
 	@Post("chat")
 	@ApiOperation({
 		summary: "Chat with the assistant, streamed as server-sent events",
-		description:
-			"Events: `delta` (`{text}`) as the reply is written, then `done` or `error` (`{code, message}`).",
+		description: AGENT_CHAT_EVENTS,
 	})
 	@ApiOkResponse({ content: { "text/event-stream": {} } })
 	async chat(
@@ -70,26 +68,9 @@ export class AgentsController {
 		@Res() response: Response,
 	): Promise<void> {
 		const caller = await this.agents.callerFor(session);
-		// Stop generating (and paying for) tokens once the browser goes away.
-		const abort = new AbortController();
-		response.on("close", () => abort.abort());
-
-		const upstream = await this.agents.chat(caller, body, abort.signal);
-		response.status(HttpStatus.OK).set({
-			"Content-Type": "text/event-stream",
-			"Cache-Control": "no-cache",
-			Connection: "keep-alive",
-			// Keeps reverse proxies from buffering the stream.
-			"X-Accel-Buffering": "no",
-		});
-		response.flushHeaders();
-		if (!upstream.body) {
-			response.end();
-			return;
-		}
-		Readable.fromWeb(upstream.body as ReadableStream)
-			.on("error", () => response.end())
-			.pipe(response);
+		await proxyEventStream(response, (signal) =>
+			this.agents.chat(caller, body, signal),
+		);
 	}
 
 	@Post("jobs")

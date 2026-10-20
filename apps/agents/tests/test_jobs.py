@@ -6,7 +6,8 @@ import pytest
 from arq.connections import ArqRedis
 from arq.constants import result_key_prefix
 
-from agents_service.jobs import ArqJobQueue, Caller
+from agents_service.auth import MemberCaller as Caller
+from agents_service.jobs import ArqJobQueue
 
 QUEUE = "agents:test"
 ALICE = Caller(user_id="alice", organization_id="org-1")

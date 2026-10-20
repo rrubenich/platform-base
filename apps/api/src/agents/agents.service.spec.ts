@@ -113,8 +113,34 @@ describe("AgentsService", () => {
 			{ issuer: AGENTS_JWT_ISSUER, audience: AGENTS_JWT_AUDIENCE },
 		);
 		expect(protectedHeader.alg).toBe("EdDSA");
-		expect(payload).toMatchObject({ sub: "user-1", org: "org-1" });
+		expect(payload).toMatchObject({
+			sub: "user-1",
+			org: "org-1",
+			scope: "assistant",
+		});
 		expect((payload.exp ?? 0) - (payload.iat ?? 0)).toBe(60);
+	});
+
+	it("scopes the docs assistant's token to it, without an organization", async () => {
+		fetchMock.mockResolvedValue(new Response("event: done\n\n"));
+
+		await service.docsChat(
+			"admin-1",
+			{ messages: [{ role: "user", content: "Como funciona o JWT?" }] },
+			new AbortController().signal,
+		);
+
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe("http://agents.internal/v1/docs/chat");
+		const headers = (init?.headers ?? {}) as Record<string, string>;
+		const { payload } = await jwtVerify(
+			headers.Authorization.slice("Bearer ".length),
+			publicKey,
+			{ issuer: AGENTS_JWT_ISSUER, audience: AGENTS_JWT_AUDIENCE },
+		);
+		expect(payload.sub).toBe("admin-1");
+		expect(payload.scope).toBe("docs");
+		expect(payload).not.toHaveProperty("org");
 	});
 
 	it("calls the health check without a token", async () => {

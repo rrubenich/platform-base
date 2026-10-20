@@ -31,6 +31,7 @@ File-based routes under `apps/web/src/routes/`.
 | `/admin/users/$userId` | Superadmin | One account's profile, ban status and active sessions. | `routes/admin/users/$userId.tsx` → `containers/admin-user` |
 | `/admin/organizations` | Superadmin | Find organizations (`?q=`, `?page=`) and create one on behalf of an owner. | `routes/admin/organizations/index.tsx` → `containers/admin-organizations` |
 | `/admin/organizations/$organizationId` | Superadmin | Manage one organization: details, members and roles, teams and team membership, pending invitations. | `routes/admin/organizations/$organizationId.tsx` → `containers/admin-organization` |
+| `/admin/docs-assistant` | Superadmin | Chat that explains how Platform Base is built, answering from the repository's docs and citing them; shows which docs it searched and read. The conversation lives only in the page. | `routes/admin/docs-assistant.tsx` → `containers/admin-docs-assistant` |
 
 Global, on every route (`routes/__root.tsx`): locale sync and the impersonation banner.
 
@@ -62,17 +63,19 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 | `POST /api/agents/assistant/chat` | Organization member (active organization) | Chat with the assistant agent; the reply streams back as server-sent events (`delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/agents.controller.ts` |
 | `POST /api/agents/assistant/jobs` | Organization member (active organization) | Queue a background assistant run; returns its id (202). | 〃 |
 | `GET /api/agents/assistant/jobs/:id` | Organization member (active organization) | A background job's status and result; 404 for jobs of other organizations. | 〃 |
+| `POST /api/admin/docs-assistant/chat` | `docs-assistant:use` | Ask the docs assistant agent; the reply streams back as server-sent events (`tool`, `delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/docs-assistant.controller.ts` |
 
 ### Agents service (`apps/agents`, internal)
 
-Not reachable from the browser: only `apps/api` calls these, with a 60-second EdDSA JWT (`Authorization: Bearer`) whose `sub` and `org` claims name the user and organization. Its own Swagger UI is at `:8000/docs`.
+Not reachable from the browser: only `apps/api` calls these, with a 60-second EdDSA JWT (`Authorization: Bearer`) whose `sub` and `org` claims name the user and organization (when there is one), and whose `scope` names the agent it may reach (403 on any other). Its own Swagger UI is at `:8000/docs`.
 
 | Method & path | Access | Goal | Source |
 |---|---|---|---|
 | `GET /health` | Public (internal network) | Liveness probe. | `routers/health.py` |
-| `POST /v1/assistant/chat` | JWT from `apps/api` | Stream the assistant's reply as SSE. | `routers/assistant.py` |
-| `POST /v1/assistant/jobs` | JWT from `apps/api` | Queue an assistant run on the arq worker. | 〃 |
-| `GET /v1/assistant/jobs/{job_id}` | JWT from `apps/api` (same organization) | Job status and result. | 〃 |
+| `POST /v1/assistant/chat` | JWT, scope `assistant`, with `org` | Stream the assistant's reply as SSE. | `routers/assistant.py` |
+| `POST /v1/assistant/jobs` | JWT, scope `assistant`, with `org` | Queue an assistant run on the arq worker. | 〃 |
+| `GET /v1/assistant/jobs/{job_id}` | JWT, scope `assistant` (same organization) | Job status and result. | 〃 |
+| `POST /v1/docs/chat` | JWT, scope `docs` | Stream the docs assistant's reply as SSE, with a `tool` event per doc it lists, searches or reads. | `routers/docs.py` |
 
 ### Better Auth (`/api/auth/*`)
 

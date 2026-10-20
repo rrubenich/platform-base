@@ -15,6 +15,8 @@ export const statements = {
 	organization: ["list", "create", "update", "delete"],
 	"organization-member": ["create", "update", "delete"],
 	team: ["create", "update", "delete"],
+	// The admin console's docs assistant (/api/admin/docs-assistant).
+	"docs-assistant": ["use"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -29,6 +31,7 @@ export const roles = {
 		organization: ["list", "create", "update", "delete"],
 		"organization-member": ["create", "update", "delete"],
 		team: ["create", "update", "delete"],
+		"docs-assistant": ["use"],
 	}),
 };
 

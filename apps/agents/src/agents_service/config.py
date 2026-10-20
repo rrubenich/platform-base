@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +22,11 @@ class Settings(BaseSettings):
     # LangChain "<provider>:<model>" id, see llm.py. Provider API keys
     # (OPENAI_API_KEY, ANTHROPIC_API_KEY, ...) are read by the integrations.
     llm_model: str = "openai:gpt-5.5"
+
+    # Where the docs assistant reads the Markdown docs from: the repository
+    # root (AGENTS.md, docs/, ...). Defaults to this checkout's root; a
+    # deployment must ship those files and point here.
+    docs_root: Path = Path(__file__).resolve().parents[4]
 
 
 @lru_cache

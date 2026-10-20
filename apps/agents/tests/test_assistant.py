@@ -5,7 +5,8 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
-from agents_service.jobs import Caller, JobView
+from agents_service.auth import MemberCaller as Caller
+from agents_service.jobs import JobView
 
 from .conftest import AUTH, FailingChatModel, FakeQueue, bearer, make_token
 
@@ -32,8 +33,8 @@ def sse_events(body: str) -> list[tuple[str, object]]:
         bearer(make_token(exp=int(time.time()) - 60)),
         bearer(make_token(aud="someone-else")),
         bearer(make_token(iss="someone-else")),
-        bearer(make_token(org=None)),
         bearer(make_token(sub="")),
+        bearer(make_token(scope=None)),
     ],
     ids=[
         "missing",
@@ -42,8 +43,8 @@ def sse_events(body: str) -> list[tuple[str, object]]:
         "expired",
         "wrong audience",
         "wrong issuer",
-        "no organization",
         "empty user",
+        "no scope",
     ],
 )
 def test_rejects_requests_without_a_valid_token(
@@ -128,3 +129,17 @@ def test_hides_jobs_of_other_organizations(
     queue.jobs["job-1"] = (Caller(user_id="user-2", organization_id="org-2"), view)
 
     assert client.get("/v1/assistant/jobs/job-1", headers=AUTH).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "token",
+    [make_token(scope="docs"), make_token(org=None)],
+    ids=["issued for another agent", "no organization"],
+)
+def test_forbids_tokens_not_meant_for_the_assistant(
+    client: TestClient, token: str
+) -> None:
+    assert (
+        client.post("/v1/assistant/chat", json=CHAT, headers=bearer(token)).status_code
+        == 403
+    )

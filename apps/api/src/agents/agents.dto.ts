@@ -14,6 +14,9 @@ import type { ChatRequest, JobRequest } from "./agents.service.js";
 // this API instead of a 502 from the proxy.
 const MAX_MESSAGE_LENGTH = 100_000;
 
+export const AGENT_CHAT_EVENTS =
+	"Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).";
+
 export class ChatMessageDto {
 	@ApiProperty({ enum: ["user", "assistant"] })
 	@IsIn(["user", "assistant"])

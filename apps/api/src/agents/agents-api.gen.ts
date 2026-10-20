@@ -32,7 +32,7 @@ export interface paths {
 		put?: never;
 		/**
 		 * Chat with the assistant, streamed as server-sent events
-		 * @description Events: `delta` (`{text}`) as the reply is written, then `done` or `error` (`{code, message}`).
+		 * @description Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).
 		 */
 		post: operations["chat_v1_assistant_chat_post"];
 		delete?: never;
@@ -69,6 +69,26 @@ export interface paths {
 		get: operations["get_job_v1_assistant_jobs__job_id__get"];
 		put?: never;
 		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	"/v1/docs/chat": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Ask how Platform Base is built, answered from the project's docs (SSE)
+		 * @description Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).
+		 */
+		post: operations["chat_v1_docs_chat_post"];
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -181,11 +201,7 @@ export interface operations {
 	chat_v1_assistant_chat_post: {
 		parameters: {
 			query?: never;
-			header: {
-				"x-service-token"?: string | null;
-				"x-user-id": string;
-				"x-organization-id": string;
-			};
+			header?: never;
 			path?: never;
 			cookie?: never;
 		};
@@ -218,11 +234,7 @@ export interface operations {
 	create_job_v1_assistant_jobs_post: {
 		parameters: {
 			query?: never;
-			header: {
-				"x-service-token"?: string | null;
-				"x-user-id": string;
-				"x-organization-id": string;
-			};
+			header?: never;
 			path?: never;
 			cookie?: never;
 		};
@@ -255,11 +267,7 @@ export interface operations {
 	get_job_v1_assistant_jobs__job_id__get: {
 		parameters: {
 			query?: never;
-			header: {
-				"x-service-token"?: string | null;
-				"x-user-id": string;
-				"x-organization-id": string;
-			};
+			header?: never;
 			path: {
 				job_id: string;
 			};
@@ -282,6 +290,39 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	chat_v1_docs_chat_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["ChatRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"text/event-stream": unknown;
+				};
 			};
 			/** @description Validation Error */
 			422: {

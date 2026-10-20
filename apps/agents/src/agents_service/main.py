@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .jobs import ArqJobQueue
-from .routers import assistant, health
+from .routers import assistant, docs, health
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(assistant.router)
+    app.include_router(docs.router)
     return app
 
 

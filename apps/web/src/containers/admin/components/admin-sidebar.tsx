@@ -1,4 +1,5 @@
 import {
+	AiBookIcon,
 	Building03Icon,
 	DashboardSquare01Icon,
 	ShieldUserIcon,
@@ -54,6 +55,11 @@ export function AdminSidebar(props: ComponentProps<typeof Sidebar>) {
 			title: m.admin_nav_organizations(),
 			to: "/admin/organizations",
 			icon: <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />,
+		},
+		{
+			title: m.admin_nav_docs_assistant(),
+			to: "/admin/docs-assistant",
+			icon: <HugeiconsIcon icon={AiBookIcon} strokeWidth={2} />,
 		},
 	];
 

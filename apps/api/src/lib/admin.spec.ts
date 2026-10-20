@@ -234,6 +234,20 @@ describe("admin plugin", () => {
 		expect((await check("someone-else")).success).toBe(false);
 	});
 
+	it("lets only admins use the docs assistant", async () => {
+		const check = (role: string) =>
+			(testAuth as unknown as AuthApi).api.userHasPermission({
+				body: {
+					userId: "someone-else",
+					role,
+					permissions: { "docs-assistant": ["use"] },
+				},
+			});
+
+		expect((await check("admin")).success).toBe(true);
+		expect((await check("user")).success).toBe(false);
+	});
+
 	// The Nest guard, against the real plugin rather than a mock, so the
 	// permission check it delegates to stays in sync with the roles config.
 	describe("AuthGuard", () => {

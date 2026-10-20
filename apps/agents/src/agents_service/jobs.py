@@ -1,6 +1,5 @@
 """Background jobs on Redis (arq). The worker side lives in `worker.py`."""
 
-from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 from uuid import uuid4
 
@@ -8,13 +7,7 @@ from arq.connections import ArqRedis
 from arq.jobs import Job, JobResult, JobStatus
 from pydantic import BaseModel
 
-
-@dataclass(frozen=True)
-class Caller:
-    """Who apps/api says is calling; it already checked the session."""
-
-    user_id: str
-    organization_id: str
+from .auth import MemberCaller
 
 
 class JobView(BaseModel):
@@ -26,9 +19,9 @@ class JobView(BaseModel):
 
 
 class JobQueue(Protocol):
-    async def enqueue(self, agent: str, caller: Caller, **inputs: Any) -> str: ...
+    async def enqueue(self, agent: str, caller: MemberCaller, **inputs: Any) -> str: ...
 
-    async def get(self, job_id: str, caller: Caller) -> JobView | None: ...
+    async def get(self, job_id: str, caller: MemberCaller) -> JobView | None: ...
 
 
 class ArqJobQueue:
@@ -36,7 +29,7 @@ class ArqJobQueue:
         self._redis = redis
         self._queue_name = queue_name
 
-    async def enqueue(self, agent: str, caller: Caller, **inputs: Any) -> str:
+    async def enqueue(self, agent: str, caller: MemberCaller, **inputs: Any) -> str:
         job_id = uuid4().hex
         await self._redis.enqueue_job(
             agent,
@@ -48,7 +41,7 @@ class ArqJobQueue:
         )
         return job_id
 
-    async def get(self, job_id: str, caller: Caller) -> JobView | None:
+    async def get(self, job_id: str, caller: MemberCaller) -> JobView | None:
         """The job, or None when it doesn't exist or belongs to another org."""
         job = Job(job_id, self._redis, _queue_name=self._queue_name)
         status = await job.status()
