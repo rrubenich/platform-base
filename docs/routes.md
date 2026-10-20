@@ -16,6 +16,7 @@ File-based routes under `apps/web/src/routes/`.
 | Path | Access | Goal | Source |
 |---|---|---|---|
 | `/` | User | Landing that routes by role. Signed-out → `/sign-in`; superadmins → `/admin`; no organization → `/onboarding`; members see a temporary welcome page (placeholder until the dashboard exists). | `routes/_workspace/index.tsx` (layout `routes/_workspace.tsx`) → `containers/home` |
+| `/onboarding` | User without an organization (members → `/`, signed-out → `/sign-in`, superadmin → `/admin`) | Create your organization (name and unique slug) or accept a pending invitation to join one. | `routes/onboarding.tsx` → `containers/onboarding` |
 | `/sign-in` | Guest | Sign in with email/password, Google, Apple or Microsoft. | `routes/(auth)/sign-in.tsx` → `containers/sign-in` |
 | `/sign-up` | Guest | Create an account; sends the email verification link. | `routes/(auth)/sign-up.tsx` → `containers/sign-up` |
 | `/two-factor` | Public (mid sign-in) | Second step of sign-in when two-factor is on: TOTP, emailed code or backup code. | `routes/(auth)/two-factor.tsx` → `containers/two-factor` |

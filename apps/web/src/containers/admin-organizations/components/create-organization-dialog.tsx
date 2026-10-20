@@ -21,8 +21,8 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Spinner } from "@workspace/ui/components/spinner";
 import { type FormEvent, useState } from "react";
+import { slugify } from "@/lib/slugify";
 import { useAdminOrganizationsContext } from "../admin-organizations.context";
-import { slugify } from "../admin-organizations.search";
 
 export function CreateOrganizationDialog() {
 	const { createOrganization, isCreating } = useAdminOrganizationsContext();
