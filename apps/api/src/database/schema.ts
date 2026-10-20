@@ -43,6 +43,7 @@ export const session = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		activeOrganizationId: text("active_organization_id"),
+		activeTeamId: text("active_team_id"),
 		impersonatedBy: text("impersonated_by"),
 	},
 	(table) => [index("session_userId_idx").on(table.userId)],
@@ -144,6 +145,7 @@ export const invitation = pgTable(
 			.references(() => organization.id, { onDelete: "cascade" }),
 		email: text("email").notNull(),
 		role: text("role"),
+		teamId: text("team_id"),
 		status: text("status").default("pending").notNull(),
 		expiresAt: timestamp("expires_at").notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -157,12 +159,52 @@ export const invitation = pgTable(
 	],
 );
 
+export const team = pgTable(
+	"team",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		// Maintained by the organization plugin (and the admin API) as members
+		// join and leave, to enforce `teams.maximumMembersPerTeam`.
+		memberCount: integer("member_count").default(0).notNull(),
+		organizationId: text("organization_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull(),
+		updatedAt: timestamp("updated_at").$onUpdate(
+			() => /* @__PURE__ */ new Date(),
+		),
+	},
+	(table) => [index("team_organizationId_idx").on(table.organizationId)],
+);
+
+export const teamMember = pgTable(
+	"team_member",
+	{
+		id: text("id").primaryKey(),
+		teamId: text("team_id")
+			.notNull()
+			.references(() => team.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		// Hash of [teamId, userId], unique so a user can't join a team twice.
+		membershipKey: text("membership_key").unique(),
+		createdAt: timestamp("created_at"),
+	},
+	(table) => [
+		index("teamMember_teamId_idx").on(table.teamId),
+		index("teamMember_userId_idx").on(table.userId),
+	],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),
 	members: many(member),
 	invitations: many(invitation),
 	twoFactors: many(twoFactor),
+	teamMembers: many(teamMember),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -189,6 +231,26 @@ export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
 export const organizationRelations = relations(organization, ({ many }) => ({
 	members: many(member),
 	invitations: many(invitation),
+	teams: many(team),
+}));
+
+export const teamRelations = relations(team, ({ one, many }) => ({
+	organization: one(organization, {
+		fields: [team.organizationId],
+		references: [organization.id],
+	}),
+	teamMembers: many(teamMember),
+}));
+
+export const teamMemberRelations = relations(teamMember, ({ one }) => ({
+	team: one(team, {
+		fields: [teamMember.teamId],
+		references: [team.id],
+	}),
+	user: one(user, {
+		fields: [teamMember.userId],
+		references: [user.id],
+	}),
 }));
 
 export const memberRelations = relations(member, ({ one }) => ({

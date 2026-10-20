@@ -21,6 +21,7 @@ import {
 	requestLocale,
 	userLocale,
 } from "../i18n/i18n.js";
+import { ac, roles } from "./permissions.js";
 
 // Standalone pool/db instance (mirrors database/migrate.ts) so this config
 // file can be loaded directly by the `better-auth` CLI and by main.ts alike,
@@ -51,6 +52,16 @@ async function sendEmail(options: {
 		throw new Error(`Failed to send email via Resend: ${error.message}`);
 	}
 }
+
+// Users granted every admin permission regardless of their stored role, so
+// the first admin can be bootstrapped before anyone can call set-role.
+const adminUserIds = (process.env.ADMIN_USER_IDS ?? "")
+	.split(",")
+	.map((id) => id.trim())
+	.filter(Boolean);
+
+// How long an admin's impersonation session lasts.
+const IMPERSONATION_SESSION_SECONDS = 60 * 60;
 
 // How long an emailed two-factor code stays valid.
 const TWO_FACTOR_OTP_MINUTES = 5;
@@ -181,8 +192,15 @@ export const authOptions: BetterAuthOptions = {
 			},
 			backupCodeOptions: { storeBackupCodes: "encrypted" },
 		}),
-		organization(),
-		admin(),
+		organization({ teams: { enabled: true } }),
+		admin({
+			ac,
+			roles,
+			defaultRole: "user",
+			adminRoles: ["admin"],
+			adminUserIds,
+			impersonationSessionDuration: IMPERSONATION_SESSION_SECONDS,
+		}),
 		openAPI(),
 	],
 };
