@@ -5,9 +5,10 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import FastAPI
 
+from . import health
+from .agents import ROUTERS
 from .config import get_settings
 from .jobs import ArqJobQueue
-from .routers import assistant, docs, health
 
 
 @asynccontextmanager
@@ -33,8 +34,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(health.router)
-    app.include_router(assistant.router)
-    app.include_router(docs.router)
+    for router in ROUTERS:
+        app.include_router(router)
     return app
 
 

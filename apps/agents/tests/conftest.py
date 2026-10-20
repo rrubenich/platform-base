@@ -132,3 +132,17 @@ def client(model: BaseChatModel, queue: FakeQueue) -> Iterator[TestClient]:
     app.dependency_overrides[get_chat_model] = lambda: model
     app.dependency_overrides[get_job_queue] = lambda: queue
     yield TestClient(app)
+
+
+CHAT = {"messages": [{"role": "user", "content": "Oi"}]}
+
+
+def sse_events(body: str) -> list[tuple[str, object]]:
+    events: list[tuple[str, object]] = []
+    for frame in body.strip().split("\n\n"):
+        fields = dict(
+            line.split(": ", 1) for line in frame.splitlines() if ": " in line
+        )
+        if "event" in fields:
+            events.append((fields["event"], json.loads(fields["data"])))
+    return events

@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, Field
 
-from ..agents import assistant
-from ..agents.chat import CHAT_EVENTS_DESCRIPTION, ChatRequest, stream_graph
-from ..auth import Caller, MemberCaller, as_member, require_scope
-from ..dependencies import ChatModelDep, JobQueueDep
-from ..jobs import JobView
+from ...auth import Caller, MemberCaller, as_member, require_scope
+from ...chat import CHAT_EVENTS_DESCRIPTION, ChatRequest, stream_graph
+from ...dependencies import ChatModelDep, JobQueueDep
+from ...jobs import JobView
+from . import agent
+from .jobs import run_assistant
 
 router = APIRouter(
     prefix="/v1/assistant",
@@ -37,7 +38,7 @@ MemberDep = Annotated[MemberCaller, Depends(member)]
 async def chat(
     body: ChatRequest, model: ChatModelDep, _caller: MemberDep
 ) -> AsyncIterator[ServerSentEvent]:
-    async for event in stream_graph(assistant.build(model), body.messages):
+    async for event in stream_graph(agent.build(model), body.messages):
         yield ServerSentEvent(event=event.type, data=event)
 
 
@@ -57,7 +58,7 @@ class JobCreated(BaseModel):
 async def create_job(
     body: JobRequest, caller: MemberDep, queue: JobQueueDep
 ) -> JobCreated:
-    job_id = await queue.enqueue("run_assistant", caller, prompt=body.prompt)
+    job_id = await queue.enqueue(run_assistant.__name__, caller, prompt=body.prompt)
     return JobCreated(id=job_id)
 
 

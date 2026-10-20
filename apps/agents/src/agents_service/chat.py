@@ -1,5 +1,5 @@
 # LangGraph's graph generics are partly untyped; relax only the rules that flag
-# them, here and in the agent modules where graphs are built and run.
+# them, here and in the agents' modules where graphs are built and run.
 # pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 """What every chat agent shares: the conversation it receives and the events
 it streams back. Agents only provide a LangGraph graph.

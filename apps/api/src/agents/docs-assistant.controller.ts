@@ -25,7 +25,7 @@ import { AgentsService } from "./agents.service.js";
 import { proxyEventStream } from "./event-stream.js";
 
 // The admin console's docs assistant: explains how Platform Base is built, answering
-// from the repository's docs (apps/agents/src/agents_service/agents/docs.py).
+// from the repository's docs (apps/agents/src/agents_service/agents/docs/).
 @ApiTags("admin")
 @ApiCookieAuth()
 @ApiUnauthorizedResponse({ description: "Not signed in" })

@@ -15,7 +15,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
-from .chat import Graph
+from ...chat import Graph
 
 # Kept byte-for-byte stable so it stays a cacheable prompt prefix.
 INSTRUCTIONS = (

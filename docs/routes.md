@@ -71,11 +71,11 @@ Not reachable from the browser: only `apps/api` calls these, with a 60-second Ed
 
 | Method & path | Access | Goal | Source |
 |---|---|---|---|
-| `GET /health` | Public (internal network) | Liveness probe. | `routers/health.py` |
-| `POST /v1/assistant/chat` | JWT, scope `assistant`, with `org` | Stream the assistant's reply as SSE. | `routers/assistant.py` |
+| `GET /health` | Public (internal network) | Liveness probe. | `health.py` |
+| `POST /v1/assistant/chat` | JWT, scope `assistant`, with `org` | Stream the assistant's reply as SSE. | `agents/assistant/router.py` |
 | `POST /v1/assistant/jobs` | JWT, scope `assistant`, with `org` | Queue an assistant run on the arq worker. | 〃 |
 | `GET /v1/assistant/jobs/{job_id}` | JWT, scope `assistant` (same organization) | Job status and result. | 〃 |
-| `POST /v1/docs/chat` | JWT, scope `docs` | Stream the docs assistant's reply as SSE, with a `tool` event per doc it lists, searches or reads. | `routers/docs.py` |
+| `POST /v1/docs/chat` | JWT, scope `docs` | Stream the docs assistant's reply as SSE, with a `tool` event per doc it lists, searches or reads. | `agents/docs/router.py` |
 
 ### Better Auth (`/api/auth/*`)
 

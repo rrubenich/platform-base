@@ -1,4 +1,3 @@
-import json
 import time
 
 import pytest
@@ -8,20 +7,15 @@ from fastapi.testclient import TestClient
 from agents_service.auth import MemberCaller as Caller
 from agents_service.jobs import JobView
 
-from .conftest import AUTH, FailingChatModel, FakeQueue, bearer, make_token
-
-CHAT = {"messages": [{"role": "user", "content": "Oi"}]}
-
-
-def sse_events(body: str) -> list[tuple[str, object]]:
-    events: list[tuple[str, object]] = []
-    for frame in body.strip().split("\n\n"):
-        fields = dict(
-            line.split(": ", 1) for line in frame.splitlines() if ": " in line
-        )
-        if "event" in fields:
-            events.append((fields["event"], json.loads(fields["data"])))
-    return events
+from ...conftest import (
+    AUTH,
+    CHAT,
+    FailingChatModel,
+    FakeQueue,
+    bearer,
+    make_token,
+    sse_events,
+)
 
 
 @pytest.mark.parametrize(

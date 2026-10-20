@@ -190,7 +190,7 @@ Color tokens live in `packages/ui/src/styles/globals.css` (`:root` / `.dark`), s
 
 ## Agents service (`apps/agents`)
 
-Python FastAPI service that runs the AI agents. Look at `src/agents_service/agents/assistant.py` as the reference agent, and `agents/docs.py` (the admin console's docs assistant) for one with tools.
+Python FastAPI service that runs the AI agents. Each agent is a package under `src/agents_service/agents/<name>/` holding everything that is only its own. Look at `agents/assistant/` as the reference agent (chat and background jobs), and `agents/docs/` (the admin console's docs assistant) for one with tools.
 
 ### How it fits
 
@@ -217,20 +217,32 @@ apps/agents/
     llm.py           # the one place the chat model is created, from LLM_MODEL
     auth.py          # verifies apps/api's JWT → the caller (user, organization, scopes)
     dependencies.py  # shared settings, chat model and job queue
+    chat.py          # chat request/events every chat agent shares; streams any graph as SSE
     jobs.py          # job queue (arq) with per-organization visibility
-    worker.py        # arq WorkerSettings: one function per background agent
-    agents/          # one module per agent (LangGraph `build`); chat.py streams any graph as SSE events
-    routers/         # HTTP routes, one router per agent
-  tests/             # pytest; real graphs on LangChain's fake chat model, fake queue (see conftest.py)
+    worker.py        # arq WorkerSettings, running every agent's JOBS
+    health.py        # GET /health
+    agents/
+      __init__.py    # the registry: ROUTERS (mounted by main.py) and JOBS (run by worker.py)
+      assistant/     # one package per agent:
+        agent.py     #   instructions, tools, `build(model)` → LangGraph graph (+ `run` for jobs)
+        router.py    #   its /v1/<name> routes, gated by its token scope
+        jobs.py      #   its arq job functions, if it runs in the background
+      docs/
+        agent.py
+        library.py   #   anything else only this agent uses (here: the docs and its tools)
+        router.py
+  tests/             # pytest, mirroring src (tests/agents/<name>/); real graphs on LangChain's
+                     # fake chat model, fake queue (see conftest.py)
   openapi.json       # committed schema apps/api generates its types from
 ```
 
 ### Adding an agent
 
-1. Write `agents/<name>.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
-2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(require_scope("<name>"))]` (from `auth.py`; `as_member` when it needs the organization), stream with `chat.stream_graph(build(model), body.messages)`, and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
-3. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
-4. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method signing a token with the new scope; `proxyEventStream` in `event-stream.ts` pipes SSE) and add the rows to `docs/routes.md`.
+1. Create the package `agents/<name>/` and write `agent.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
+2. Interactive: add `router.py` with `dependencies=[Depends(require_scope("<name>"))]` (from `auth.py`; `as_member` when it needs the organization) and stream with `chat.stream_graph(agent.build(model), body.messages)`. Background: add `jobs.py` with a `run_<name>` function and `JOBS = [run_<name>]`, and enqueue it through `JobQueueDep` by `run_<name>.__name__`. Dependencies only this agent uses (like the docs assistant's `get_docs_library`) live in its own package, not in the shared `dependencies.py`.
+3. Export `router` (and `JOBS`) from the package's `__init__.py` and register them in `agents/__init__.py`; that mounts the routes and gives the jobs to the worker. Put its tests in `tests/agents/<name>/`.
+4. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
+5. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method signing a token with the new scope; `proxyEventStream` in `event-stream.ts` pipes SSE) and add the rows to `docs/routes.md`.
 
 **The docs assistant** reads Markdown from `DOCS_ROOT` (default: the repository root of this checkout): `AGENTS.md`, `README.md`, `docs/**/*.md` and `apps/*/README.md`, nothing else (`DocsLibrary` allowlist, so it can't read `.env` or code). Its answers are only as current as those docs; a deployment must ship them next to the service and set `DOCS_ROOT`.
 
