@@ -262,6 +262,8 @@ bun run openapi       # rewrite openapi.json
 
 Use `uv add <pkg>` / `uv add --dev <pkg>` for dependencies, never `pip`. Tracing is `opentelemetry-instrument` in the `dev`/`start*` scripts with the same `OTEL_*` Grafana Cloud settings as `apps/api` (service names `agents` and `agents-worker`). Model calls themselves aren't traced yet (LangSmith or an OpenTelemetry LangChain instrumentation can add that). Don't add manual tracing in application code.
 
+**Deploying:** `apps/agents/Dockerfile` builds one image for both processes, from the repository root so the docs assistant's Markdown ships at `DOCS_ROOT=/srv/platform-base`. On Railway it runs as two services: `agents` (the default command, private networking only, no public domain; `apps/api` reaches it at `AGENTS_URL=http://${{agents.RAILWAY_PRIVATE_DOMAIN}}:${{agents.PORT}}`) and `agents-worker` (start command `opentelemetry-instrument arq agents_service.worker.WorkerSettings`).
+
 The agents service has no database access yet. When an agent needs tables, define them in `apps/api/src/database/schema.ts` and migrate with Drizzle as usual: Drizzle stays the single owner of migrations, Python only reads and writes.
 
 ## Routes map
