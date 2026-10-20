@@ -18,10 +18,11 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
 	UV_LINK_MODE=copy \
 	UV_PYTHON_DOWNLOADS=never \
-	PATH="/app/.venv/bin:$PATH" \
-	DOCS_ROOT=/srv/platform-base
+	PATH="/srv/platform-base/apps/agents/.venv/bin:$PATH"
 
-WORKDIR /app
+# Same layout as the repository, so config.py's default DOCS_ROOT (four
+# levels above config.py) resolves to /srv/platform-base, where the docs land.
+WORKDIR /srv/platform-base/apps/agents
 # Dependencies first so they stay cached until the lockfile changes.
 COPY apps/agents/pyproject.toml apps/agents/uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
