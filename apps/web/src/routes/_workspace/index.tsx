@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HomeContainer } from "@/containers/home";
+import { m } from "@workspace/i18n/messages";
+import { DashboardContainer } from "@/containers/dashboard";
 
 export const Route = createFileRoute("/_workspace/")({
-	component: HomeContainer,
+	staticData: { title: () => m.org_nav_dashboard() },
+	component: DashboardContainer,
 });

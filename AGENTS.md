@@ -126,7 +126,7 @@ Don't add manual tracing/APM wiring per feature — `apps/api/src/lib/tracing.ts
 
 ## Frontend features (`apps/web`)
 
-React + TanStack Router (file-based routing) + TanStack Query. Look at `src/containers/home/` as the reference feature.
+React + TanStack Router (file-based routing) + TanStack Query. Look at `src/containers/dashboard/` as the reference feature.
 
 ### 1. Container pattern
 
@@ -141,7 +141,7 @@ containers/<feature>/
   index.ts                   # re-exports the container: `export { FooContainer } from "./foo.container";`
 ```
 
-`<feature>.context.tsx` owns data fetching (TanStack Query) and exposes it via a `use<Feature>Context()` hook that throws if called outside its provider — see `home.context.tsx`. `<feature>.page.tsx` consumes that hook and stays presentational. Feature-local, non-reusable pieces go in `components/` next to the feature; anything reusable across features belongs in `packages/ui` instead (see below).
+`<feature>.context.tsx` owns data fetching (TanStack Query) and exposes it via a `use<Feature>Context()` hook that throws if called outside its provider — see `dashboard.context.tsx`. `<feature>.page.tsx` consumes that hook and stays presentational. Feature-local, non-reusable pieces go in `components/` next to the feature; anything reusable across features belongs in `packages/ui` instead (see below).
 
 ### 2. Wire it into routing
 
@@ -180,7 +180,7 @@ The `@/` alias inside `apps/web` resolves to `apps/web/src` (see `vite.config.ts
 
 ### 5. Testing
 
-Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.test.tsx` next to the component/container. Tests explicitly `import { describe, expect, it } from "vitest"` even though `globals: true` is set — follow that existing convention (see `src/containers/home/home.container.test.tsx`, `packages/ui/src/components/button.test.tsx`). Use `@testing-library/user-event` for interaction, not raw `fireEvent`.
+Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.test.tsx` next to the component/container. Tests explicitly `import { describe, expect, it } from "vitest"` even though `globals: true` is set — follow that existing convention (see `src/containers/dashboard/dashboard.container.test.tsx`, `packages/ui/src/components/button.test.tsx`). Use `@testing-library/user-event` for interaction, not raw `fireEvent`.
 
 ### 6. Theming
 
