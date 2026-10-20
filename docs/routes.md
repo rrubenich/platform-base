@@ -65,14 +65,14 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 
 ### Agents service (`apps/agents`, internal)
 
-Not reachable from the browser: only `apps/api` calls these, with `X-Service-Token` and the caller's `X-User-Id` / `X-Organization-Id`. Its own Swagger UI is at `:8000/docs`.
+Not reachable from the browser: only `apps/api` calls these, with a 60-second EdDSA JWT (`Authorization: Bearer`) whose `sub` and `org` claims name the user and organization. Its own Swagger UI is at `:8000/docs`.
 
 | Method & path | Access | Goal | Source |
 |---|---|---|---|
 | `GET /health` | Public (internal network) | Liveness probe. | `routers/health.py` |
-| `POST /v1/assistant/chat` | Service token + caller | Stream the assistant's reply as SSE. | `routers/assistant.py` |
-| `POST /v1/assistant/jobs` | Service token + caller | Queue an assistant run on the arq worker. | 〃 |
-| `GET /v1/assistant/jobs/{job_id}` | Service token + caller (same organization) | Job status and result. | 〃 |
+| `POST /v1/assistant/chat` | JWT from `apps/api` | Stream the assistant's reply as SSE. | `routers/assistant.py` |
+| `POST /v1/assistant/jobs` | JWT from `apps/api` | Queue an assistant run on the arq worker. | 〃 |
+| `GET /v1/assistant/jobs/{job_id}` | JWT from `apps/api` (same organization) | Job status and result. | 〃 |
 
 ### Better Auth (`/api/auth/*`)
 

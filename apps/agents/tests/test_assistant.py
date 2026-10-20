@@ -1,11 +1,13 @@
 import json
+import time
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
 from agents_service.jobs import Caller, JobView
 
-from .conftest import AUTH, FailingChatModel, FakeQueue
+from .conftest import AUTH, FailingChatModel, FakeQueue, bearer, make_token
 
 CHAT = {"messages": [{"role": "user", "content": "Oi"}]}
 
@@ -23,24 +25,35 @@ def sse_events(body: str) -> list[tuple[str, object]]:
 
 @pytest.mark.parametrize(
     "headers",
-    [{}, {**AUTH, "X-Service-Token": "wrong"}],
-    ids=["missing", "wrong"],
+    [
+        {},
+        bearer("not-a-jwt"),
+        bearer(make_token(key=Ed25519PrivateKey.generate())),
+        bearer(make_token(exp=int(time.time()) - 60)),
+        bearer(make_token(aud="someone-else")),
+        bearer(make_token(iss="someone-else")),
+        bearer(make_token(org=None)),
+        bearer(make_token(sub="")),
+    ],
+    ids=[
+        "missing",
+        "malformed",
+        "signed by another key",
+        "expired",
+        "wrong audience",
+        "wrong issuer",
+        "no organization",
+        "empty user",
+    ],
 )
-def test_rejects_requests_without_the_service_token(
+def test_rejects_requests_without_a_valid_token(
     client: TestClient, headers: dict[str, str]
 ) -> None:
-    assert (
-        client.post("/v1/assistant/chat", json=CHAT, headers=headers).status_code == 401
-    )
+    chat = client.post("/v1/assistant/chat", json=CHAT, headers=headers)
+
+    assert chat.status_code == 401
+    assert chat.headers["www-authenticate"] == "Bearer"
     assert client.get("/v1/assistant/jobs/job-1", headers=headers).status_code == 401
-
-
-def test_requires_the_caller_headers(client: TestClient) -> None:
-    headers = {"X-Service-Token": "test-token"}
-
-    assert (
-        client.post("/v1/assistant/chat", json=CHAT, headers=headers).status_code == 422
-    )
 
 
 def test_rejects_a_conversation_that_does_not_end_with_the_user(

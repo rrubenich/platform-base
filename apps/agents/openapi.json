@@ -184,6 +184,12 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -218,42 +224,6 @@
       "post": {
         "description": "Events: `delta` (`{text}`) as the reply is written, then `done` or `error` (`{code, message}`).",
         "operationId": "chat_v1_assistant_chat_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "x-service-token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Service-Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-user-id",
-            "required": true,
-            "schema": {
-              "title": "X-User-Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-organization-id",
-            "required": true,
-            "schema": {
-              "title": "X-Organization-Id",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -301,6 +271,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Chat with the assistant, streamed as server-sent events",
         "tags": [
           "assistant"
@@ -310,42 +285,6 @@
     "/v1/assistant/jobs": {
       "post": {
         "operationId": "create_job_v1_assistant_jobs_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "x-service-token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Service-Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-user-id",
-            "required": true,
-            "schema": {
-              "title": "X-User-Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-organization-id",
-            "required": true,
-            "schema": {
-              "title": "X-Organization-Id",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -378,6 +317,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Run the assistant in the background",
         "tags": [
           "assistant"
@@ -394,40 +338,6 @@
             "required": true,
             "schema": {
               "title": "Job Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-service-token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Service-Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-user-id",
-            "required": true,
-            "schema": {
-              "title": "X-User-Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-organization-id",
-            "required": true,
-            "schema": {
-              "title": "X-Organization-Id",
               "type": "string"
             }
           }
@@ -457,6 +367,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "A background job's status and result",
         "tags": [
           "assistant"

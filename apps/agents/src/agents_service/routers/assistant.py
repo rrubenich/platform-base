@@ -5,18 +5,15 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, Field, model_validator
 
 from ..agents import assistant
-from ..dependencies import (
-    CallerDep,
-    ChatModelDep,
-    JobQueueDep,
-    require_service_token,
-)
+from ..auth import CallerDep, get_caller
+from ..dependencies import ChatModelDep, JobQueueDep
 from ..jobs import JobView
 
 router = APIRouter(
     prefix="/v1/assistant",
     tags=["assistant"],
-    dependencies=[Depends(require_service_token)],
+    # Every route needs a valid token from apps/api.
+    dependencies=[Depends(get_caller)],
 )
 
 
@@ -40,7 +37,7 @@ class ChatRequest(BaseModel):
     ),
 )
 async def chat(
-    body: ChatRequest, model: ChatModelDep, _caller: CallerDep
+    body: ChatRequest, model: ChatModelDep
 ) -> AsyncIterator[ServerSentEvent]:
     async for event in assistant.stream_reply(model, body.messages):
         yield ServerSentEvent(event=event.type, data=event)

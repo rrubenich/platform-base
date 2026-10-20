@@ -17,6 +17,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.66b1",
     "opentelemetry-instrumentation-redis>=0.66b1",
     "pydantic-settings>=2.16.1",
+    "pyjwt[crypto]>=2.15.1",
 ]
 
 [build-system]

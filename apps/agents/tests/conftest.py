@@ -1,28 +1,56 @@
 import os
+import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-# Settings are read on first use; give them the required values before any
-# app module is imported.
-os.environ.setdefault("AGENTS_SERVICE_TOKEN", "test-token")
+# apps/api's signing key, generated per test run. Settings are read on first
+# use, so the public half is in the env before any app module is imported.
+SIGNING_KEY = Ed25519PrivateKey.generate()
+os.environ["AGENTS_JWT_PUBLIC_KEY"] = (
+    SIGNING_KEY.public_key()
+    .public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    .decode()
+)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
 
-from agents_service.dependencies import get_chat_model, get_job_queue
-from agents_service.jobs import Caller, JobView
-from agents_service.main import create_app
+from agents_service.dependencies import get_chat_model, get_job_queue  # noqa: E402
+from agents_service.jobs import Caller, JobView  # noqa: E402
+from agents_service.main import create_app  # noqa: E402
 
-AUTH = {
-    "X-Service-Token": "test-token",
-    "X-User-Id": "user-1",
-    "X-Organization-Id": "org-1",
-}
+
+def make_token(key: Ed25519PrivateKey = SIGNING_KEY, **overrides: Any) -> str:
+    """A token as apps/api signs it; `overrides` replace or (None) drop claims."""
+    now = int(time.time())
+    claims: dict[str, Any] = {
+        "iss": "platform-base-api",
+        "aud": "platform-base-agents",
+        "sub": "user-1",
+        "org": "org-1",
+        "iat": now,
+        "exp": now + 60,
+    }
+    claims.update(overrides)
+    claims = {name: value for name, value in claims.items() if value is not None}
+    return jwt.encode(claims, key, algorithm="EdDSA")
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+AUTH = bearer(make_token())
 
 
 class FailingChatModel(GenericFakeChatModel):

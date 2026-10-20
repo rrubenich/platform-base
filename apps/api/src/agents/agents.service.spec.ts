@@ -6,9 +6,14 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test, type TestingModule } from "@nestjs/testing";
+import { type CryptoKey, exportPKCS8, generateKeyPair, jwtVerify } from "jose";
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import type { Session } from "../lib/auth.js";
-import { AgentsService } from "./agents.service.js";
+import {
+	AGENTS_JWT_AUDIENCE,
+	AGENTS_JWT_ISSUER,
+	AgentsService,
+} from "./agents.service.js";
 
 const CALLER = { userId: "user-1", organizationId: "org-1" };
 
@@ -27,6 +32,14 @@ describe("AgentsService", () => {
 		select: () => ({ from: () => ({ where: () => ({ limit }) }) }),
 	};
 	const fetchMock = vi.fn<typeof fetch>();
+	let publicKey: CryptoKey;
+	let privateKeyPem: string;
+
+	beforeAll(async () => {
+		const keys = await generateKeyPair("EdDSA", { extractable: true });
+		publicKey = keys.publicKey;
+		privateKeyPem = await exportPKCS8(keys.privateKey);
+	});
 
 	beforeEach(async () => {
 		memberships.length = 0;
@@ -42,7 +55,7 @@ describe("AgentsService", () => {
 					provide: ConfigService,
 					useValue: new ConfigService({
 						AGENTS_URL: "http://agents.internal",
-						AGENTS_SERVICE_TOKEN: "secret",
+						AGENTS_JWT_PRIVATE_KEY: privateKeyPem,
 					}),
 				},
 			],
@@ -78,7 +91,7 @@ describe("AgentsService", () => {
 		});
 	});
 
-	it("sends the service token and the caller on every request", async () => {
+	it("sends a short-lived token, signed for the agents service, naming the caller", async () => {
 		fetchMock.mockResolvedValue(
 			Response.json({ id: "job-1" }, { status: 202 }),
 		);
@@ -89,12 +102,28 @@ describe("AgentsService", () => {
 
 		const [url, init] = fetchMock.mock.calls[0];
 		expect(url).toBe("http://agents.internal/v1/assistant/jobs");
-		expect(init?.headers).toMatchObject({
-			"X-Service-Token": "secret",
-			"X-User-Id": "user-1",
-			"X-Organization-Id": "org-1",
-		});
 		expect(init?.body).toBe(JSON.stringify({ prompt: "Resuma" }));
+
+		const headers = (init?.headers ?? {}) as Record<string, string>;
+		const authorization = headers.Authorization;
+		expect(authorization).toMatch(/^Bearer /);
+		const { payload, protectedHeader } = await jwtVerify(
+			authorization.slice("Bearer ".length),
+			publicKey,
+			{ issuer: AGENTS_JWT_ISSUER, audience: AGENTS_JWT_AUDIENCE },
+		);
+		expect(protectedHeader.alg).toBe("EdDSA");
+		expect(payload).toMatchObject({ sub: "user-1", org: "org-1" });
+		expect((payload.exp ?? 0) - (payload.iat ?? 0)).toBe(60);
+	});
+
+	it("calls the health check without a token", async () => {
+		fetchMock.mockResolvedValue(Response.json({ status: "ok" }));
+
+		await expect(service.health()).resolves.toEqual({ status: "ok" });
+		expect(fetchMock.mock.calls[0][1]?.headers).not.toHaveProperty(
+			"Authorization",
+		);
 	});
 
 	it("maps a missing job to 404", async () => {

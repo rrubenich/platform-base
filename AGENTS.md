@@ -196,11 +196,13 @@ Python FastAPI service that runs the AI agents. Look at `src/agents_service/agen
 
 ```
 web ──► apps/api  /api/agents/*  ──► apps/agents  /v1/*   (internal, never exposed)
-          AuthGuard + active-org         X-Service-Token + X-User-Id + X-Organization-Id
-          membership check
+          AuthGuard + active-org         Authorization: Bearer <60s EdDSA JWT>
+          membership check, signs JWT    verified with the public key → sub (user), org
 ```
 
-- **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with the shared `AGENTS_SERVICE_TOKEN` and the caller's ids. `apps/agents` trusts those headers, so it must never be reachable from the internet.
+- **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with a JWT naming the caller: `sub` = user id, `org` = organization id, `iss` `platform-base-api`, `aud` `platform-base-agents`, valid for 60 seconds. `AgentsService` signs it with `AGENTS_JWT_PRIVATE_KEY` (Ed25519); `apps/agents` only has the public key (`AGENTS_JWT_PUBLIC_KEY`), so it can verify tokens but never mint one. The token is checked when a request starts; a chat stream may then outlive it.
+- **Network:** `apps/agents` takes no traffic from the internet, only from `apps/api` over the private network. It still needs outbound access to the LLM provider's API. The JWT is a second layer on top of that isolation, not a replacement for it.
+- **Rotating the key pair:** generate a new pair (see `apps/api/.env.example`) and deploy both halves together. `apps/agents` accepts a single public key, so calls fail between the two deploys; accepting several keys (by `kid`) is the follow-up if rotation must be seamless.
 - **Interactive agents** stream over SSE (`fastapi.sse.EventSourceResponse`); `apps/api` pipes the stream through unchanged and aborts it when the browser disconnects.
 - **Background agents** run on an arq worker (`src/agents_service/worker.py`) over the same Redis Cloud database, on their own queue (`agents:queue`). Jobs record who queued them; a job is only visible to its organization.
 
@@ -212,7 +214,8 @@ apps/agents/
     main.py          # FastAPI app; lifespan creates the shared Redis pool
     config.py        # pydantic-settings, every env var
     llm.py           # the one place the chat model is created, from LLM_MODEL
-    dependencies.py  # service-token check, caller, shared clients
+    auth.py          # verifies apps/api's JWT → the caller (user + organization)
+    dependencies.py  # shared settings, chat model and job queue
     jobs.py          # job queue (arq) with per-organization visibility
     worker.py        # arq WorkerSettings: one function per background agent
     agents/          # one module per agent: LangGraph graph (`build`) + stream/run functions
@@ -224,7 +227,7 @@ apps/agents/
 ### Adding an agent
 
 1. Write `agents/<name>.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
-2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(require_service_token)]` and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
+2. Interactive: add `routers/<name>.py` with `dependencies=[Depends(get_caller)]` (from `auth.py`; take `CallerDep` in routes that need the user or organization) and include it in `main.py`. Background: add a `run_<name>` function to `WorkerSettings.functions` and enqueue it by that name through `JobQueueDep`.
 3. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
 4. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method) and add the rows to `docs/routes.md`.
 
@@ -260,4 +263,4 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat(scope): 
 - Don't add a local Postgres/Redis (docker-compose or otherwise) — the project intentionally uses Neon and Redis Cloud for every environment.
 - Don't bypass the shared `DATABASE_CONNECTION`/`REDIS_CONNECTION` providers with ad hoc clients.
 - Don't hand-edit `apps/web/src/routeTree.gen.ts` or `apps/api/src/agents/agents-api.gen.ts`.
-- Don't expose `apps/agents` publicly or call it from `apps/web`: it trusts the caller headers `apps/api` sends.
+- Don't expose `apps/agents` publicly or call it from `apps/web`: its API is only for `apps/api`, the holder of the JWT signing key.

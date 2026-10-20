@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { and, eq } from "drizzle-orm";
+import { type CryptoKey, importPKCS8, SignJWT } from "jose";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { member } from "../database/schema.js";
@@ -23,13 +24,23 @@ export type JobView = Schemas["JobView"];
 /** Who apps/agents is told is calling. It trusts this, so it must be checked. */
 export type AgentCaller = { userId: string; organizationId: string };
 
+// Must match ISSUER / AUDIENCE in apps/agents/src/agents_service/auth.py.
+export const AGENTS_JWT_ISSUER = "platform-base-api";
+export const AGENTS_JWT_AUDIENCE = "platform-base-agents";
+// Checked once when a request starts (a chat stream may then run longer),
+// so it only has to outlive the trip to the agents service.
+const AGENTS_JWT_TTL = "60s";
+
 /**
- * Client for the internal Python agents service (apps/agents). Every call
- * carries the shared service token and the caller's user and organization;
- * the agents service never sees the user's session itself.
+ * Client for the internal Python agents service (apps/agents). Each call
+ * carries a short-lived EdDSA JWT naming the caller's user (`sub`) and
+ * organization (`org`), signed with AGENTS_JWT_PRIVATE_KEY; the agents
+ * service only holds the public key, and never sees the user's session.
  */
 @Injectable()
 export class AgentsService {
+	private signingKey?: Promise<CryptoKey>;
+
 	constructor(
 		private readonly config: ConfigService,
 		@Inject(DATABASE_CONNECTION) private readonly db: NodePgDatabase,
@@ -111,11 +122,9 @@ export class AgentsService {
 			this.config.get<string>("AGENTS_URL") ?? "http://localhost:8000";
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
-			"X-Service-Token": this.config.getOrThrow<string>("AGENTS_SERVICE_TOKEN"),
 		};
 		if (caller) {
-			headers["X-User-Id"] = caller.userId;
-			headers["X-Organization-Id"] = caller.organizationId;
+			headers.Authorization = `Bearer ${await this.tokenFor(caller)}`;
 		}
 
 		let response: Response;
@@ -134,5 +143,21 @@ export class AgentsService {
 			);
 		}
 		return response;
+	}
+
+	private async tokenFor(caller: AgentCaller): Promise<string> {
+		// Imported once, on the first call that needs it (see `send`).
+		this.signingKey ??= importPKCS8(
+			this.config.getOrThrow<string>("AGENTS_JWT_PRIVATE_KEY"),
+			"EdDSA",
+		);
+		return new SignJWT({ org: caller.organizationId })
+			.setProtectedHeader({ alg: "EdDSA" })
+			.setIssuer(AGENTS_JWT_ISSUER)
+			.setAudience(AGENTS_JWT_AUDIENCE)
+			.setSubject(caller.userId)
+			.setIssuedAt()
+			.setExpirationTime(AGENTS_JWT_TTL)
+			.sign(await this.signingKey);
 	}
 }

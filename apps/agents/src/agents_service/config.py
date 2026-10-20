@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,9 +8,9 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Shared secret apps/api sends as `X-Service-Token`. This service is
-    # internal: apps/api authenticates the user and forwards who is calling.
-    agents_service_token: SecretStr
+    # PEM public key matching apps/api's AGENTS_JWT_PRIVATE_KEY; verifies the
+    # token apps/api signs for each call (see auth.py).
+    agents_jwt_public_key: str
 
     redis_url: str
     # Own arq queue name so jobs never collide with other keys in Redis Cloud.
