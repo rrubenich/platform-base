@@ -200,6 +200,41 @@ describe("requireOrganization", () => {
 	});
 });
 
+describe("organization lookup failures", () => {
+	it("does not treat a failed lookup as no organization", async () => {
+		signedInWith(null);
+		permission(false);
+		vi.mocked(authClient.organization.list).mockResolvedValue({
+			data: null,
+			error: { message: "boom" },
+		} as never);
+
+		await expect(requireOrganization()).rejects.toThrow("boom");
+	});
+
+	it("does not let a member into onboarding when the lookup fails", async () => {
+		signedInWith(null);
+		vi.mocked(authClient.organization.list).mockResolvedValue({
+			data: null,
+			error: { message: "boom" },
+		} as never);
+
+		await expect(requireNoOrganization()).rejects.toThrow("boom");
+	});
+
+	it("fails when the organization cannot be activated", async () => {
+		signedInWith(null);
+		permission(false);
+		organizations(["org-1"]);
+		vi.mocked(authClient.organization.setActive).mockResolvedValue({
+			data: null,
+			error: { message: "nope" },
+		} as never);
+
+		await expect(requireOrganization()).rejects.toThrow("nope");
+	});
+});
+
 describe("requireNoOrganization", () => {
 	it("sends signed-out visitors to sign-in", async () => {
 		signedOut();

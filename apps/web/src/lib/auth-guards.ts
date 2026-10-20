@@ -38,7 +38,9 @@ async function hasAdminAccess(session: Session) {
 }
 
 async function firstOrganization() {
-	const { data } = await authClient.organization.list();
+	const { data, error } = await authClient.organization.list();
+	// A failed lookup is not "no organization": surface it to the error boundary.
+	if (error) throw new Error(error.message ?? "Could not load organizations");
 	return data?.[0];
 }
 
@@ -56,9 +58,12 @@ export async function requireOrganization() {
 	if (!organization) throw redirect({ to: "/onboarding" });
 
 	if (!session.session.activeOrganizationId) {
-		await authClient.organization.setActive({
+		const { error } = await authClient.organization.setActive({
 			organizationId: organization.id,
 		});
+		if (error) {
+			throw new Error(error.message ?? "Could not activate the organization");
+		}
 	}
 
 	return { session };
