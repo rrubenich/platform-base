@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { createContext, type ReactNode, useContext } from "react";
 import { authClient } from "@/lib/auth-client";
 import { can, ORGANIZATION_QUERY_KEY, type OrgRole } from "@/lib/organization";
+import { useSignOut } from "@/lib/sign-out";
 
 type FullOrganizationResult = Awaited<
 	ReturnType<typeof authClient.organization.getFullOrganization>
@@ -33,6 +34,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(
 /** The workspace shell: the user's organization, their role in it, sign-out. */
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
+	const signOutAndForget = useSignOut();
 	const { data: session } = authClient.useSession();
 	const userId = session?.user.id;
 
@@ -54,7 +56,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		?.role as OrgRole | undefined;
 
 	async function signOut() {
-		await authClient.signOut();
+		await signOutAndForget();
 		await navigate({ to: "/sign-in" });
 	}
 

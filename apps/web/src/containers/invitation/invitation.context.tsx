@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
 import { ORGANIZATION_QUERY_KEY } from "@/lib/organization";
 import type { AuthSearch } from "@/lib/redirect-target";
+import { useSignOut } from "@/lib/sign-out";
 
 export type InvitationDetails = {
 	organizationName: string;
@@ -56,6 +57,7 @@ const sameEmail = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 export function InvitationProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
+	const signOut = useSignOut();
 	const queryClient = useQueryClient();
 	const { invitationId } = useParams({ from: "/invitations/$invitationId" });
 	const { email } = useSearch({ from: "/invitations/$invitationId" });
@@ -174,7 +176,7 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 	async function switchAccount() {
 		setPending("switch");
 		setActionError(null);
-		const { error } = await authClient.signOut();
+		const { error } = await signOut();
 		setPending(null);
 		if (error) {
 			setActionError(authErrorMessage(error, m.invitation_sign_out_error()));
