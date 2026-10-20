@@ -23,7 +23,9 @@ type WorkspaceContextValue = {
 	user: WorkspaceUser | undefined;
 	can: (permissions: Record<string, string[]>) => boolean;
 	isLoading: boolean;
+	/** The organization failed to load. */
 	isError: boolean;
+	retry: () => void;
 	signOut: () => Promise<void>;
 };
 
@@ -42,6 +44,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		data: organization,
 		isLoading,
 		isError,
+		refetch,
 	} = useQuery({
 		queryKey: [...ORGANIZATION_QUERY_KEY, "full"],
 		queryFn: async () => {
@@ -70,6 +73,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				can: (permissions) => can(role, permissions),
 				isLoading,
 				isError,
+				retry: () => void refetch(),
 				signOut,
 			}}
 		>

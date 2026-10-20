@@ -175,27 +175,6 @@ describe("DashboardContainer", () => {
 		expect(await screen.findByText("No teams yet")).toBeTruthy();
 	});
 
-	it("shows an error instead of loading forever when the organization fails", async () => {
-		setViewer([]);
-		vi.mocked(useWorkspace).mockReturnValue({
-			organization: undefined,
-			role: undefined,
-			userId: "user-1",
-			can: () => false,
-			isLoading: false,
-			isError: true,
-		} as never);
-		renderDashboard();
-
-		expect(
-			screen.getByText("Could not load your organization. Please try again."),
-		).toBeTruthy();
-		expect(screen.queryByText("Recent members")).toBeNull();
-		await waitFor(() =>
-			expect(authClient.organization.listUserTeams).toHaveBeenCalled(),
-		);
-	});
-
 	it("shows an error in My teams when the teams fail to load", async () => {
 		setViewer([]);
 		vi.mocked(authClient.organization.listUserTeams).mockResolvedValue({

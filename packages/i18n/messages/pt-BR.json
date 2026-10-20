@@ -579,7 +579,6 @@
 	"dashboard_recent_title": "Membros recentes",
 	"dashboard_recent_description": "As pessoas que entraram há pouco.",
 	"dashboard_recent_joined": "Entrou em {date}",
-	"dashboard_load_error": "Não foi possível carregar sua organização. Tente novamente.",
 	"workspace_load_error": "Não foi possível carregar sua organização.",
 	"workspace_retry": "Tentar novamente",
 	"route_error_title": "Algo deu errado",

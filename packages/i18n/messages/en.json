@@ -579,7 +579,6 @@
 	"dashboard_recent_title": "Recent members",
 	"dashboard_recent_description": "The newest people to join.",
 	"dashboard_recent_joined": "Joined {date}",
-	"dashboard_load_error": "Could not load your organization. Please try again.",
 	"workspace_load_error": "Could not load your organization.",
 	"workspace_retry": "Try again",
 	"route_error_title": "Something went wrong",

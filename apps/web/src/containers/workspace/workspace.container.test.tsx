@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { m } from "@workspace/i18n/messages";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { authClient } from "@/lib/auth-client";
 import { WorkspaceContainer } from "./workspace.container";
@@ -126,5 +127,31 @@ describe("WorkspaceContainer", () => {
 			expect(navigate).toHaveBeenCalledWith({ to: "/sign-in" }),
 		);
 		expect(authClient.signOut).toHaveBeenCalled();
+	});
+
+	it("shows an error with a retry instead of the page when the organization fails to load", async () => {
+		vi.mocked(authClient.organization.getFullOrganization).mockResolvedValue({
+			data: null,
+			error: { status: 500, message: "boom" },
+		} as never);
+		renderWorkspace();
+
+		expect(await screen.findByText(m.workspace_load_error())).toBeVisible();
+		expect(screen.queryByText("outlet content")).toBeNull();
+
+		vi.mocked(authClient.organization.getFullOrganization).mockResolvedValue({
+			data: {
+				id: "org-1",
+				name: "Acme Inc",
+				members: [{ userId: "user-1", role: "admin" }],
+			},
+			error: null,
+		} as never);
+		await userEvent.click(
+			screen.getByRole("button", { name: m.workspace_retry() }),
+		);
+
+		expect(await screen.findByText("outlet content")).toBeInTheDocument();
+		expect(screen.queryByText(m.workspace_load_error())).toBeNull();
 	});
 });

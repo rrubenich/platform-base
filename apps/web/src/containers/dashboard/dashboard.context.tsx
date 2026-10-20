@@ -12,8 +12,6 @@ const RECENT_MEMBERS = 5;
 
 type DashboardContextValue = {
 	isLoading: boolean;
-	/** The organization failed to load. */
-	isError: boolean;
 	/** Loading the viewer's teams failed. */
 	isTeamsError: boolean;
 	memberCount: number | undefined;
@@ -31,7 +29,8 @@ const DashboardContext = createContext<DashboardContextValue | undefined>(
 );
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-	const { organization, isLoading, isError, can } = useWorkspace();
+	// The workspace shell shows the organization's own load error.
+	const { organization, isLoading, can } = useWorkspace();
 	const details = organization as OrganizationDetails | undefined;
 
 	const { data: myTeams, isError: isTeamsError } = useQuery({
@@ -54,7 +53,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 		<DashboardContext.Provider
 			value={{
 				isLoading,
-				isError: isError === true,
 				isTeamsError,
 				memberCount: details?.members.length,
 				teamCount: details ? (details.teams ?? []).length : undefined,
