@@ -21,8 +21,8 @@ vi.mock("@/containers/workspace/workspace.context", () => ({
 
 vi.mock("@/lib/auth-client", () => ({
 	authClient: {
+		$fetch: vi.fn(),
 		organization: {
-			listTeamMembers: vi.fn(),
 			addTeamMember: vi.fn(),
 			removeTeamMember: vi.fn(),
 		},
@@ -81,7 +81,7 @@ describe("TeamContainer", () => {
 		params = { teamId: "t1" };
 		toast.success.mockReset();
 		toast.error.mockReset();
-		vi.mocked(authClient.organization.listTeamMembers)
+		vi.mocked(authClient.$fetch)
 			.mockReset()
 			.mockResolvedValue({
 				data: [{ id: "tm1", teamId: "t1", userId: "user-2" }],
@@ -105,9 +105,10 @@ describe("TeamContainer", () => {
 			await screen.findByRole("row", { name: /Bob Builder/ }),
 		).toBeInTheDocument();
 		expect(screen.queryByRole("row", { name: /Cy Cook/ })).toBeNull();
-		expect(authClient.organization.listTeamMembers).toHaveBeenCalledWith({
-			query: { teamId: "t1" },
-		});
+		expect(authClient.$fetch).toHaveBeenCalledWith(
+			"/organization/team-members",
+			{ method: "GET", query: { teamId: "t1" } },
+		);
 		expect(screen.getByRole("heading", { name: "Design" })).toBeInTheDocument();
 	});
 
@@ -172,6 +173,29 @@ describe("TeamContainer", () => {
 		).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Add member" })).toBeNull();
 		expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
+	});
+
+	it("shows an error instead of an empty list when the members fail to load", async () => {
+		vi.mocked(authClient.$fetch).mockResolvedValue({
+			data: null,
+			error: { message: "nope", status: 500 },
+		} as never);
+		renderTeam();
+
+		expect(
+			await screen.findByText("Could not load this team's members."),
+		).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Add member" })).toBeNull();
+
+		vi.mocked(authClient.$fetch).mockResolvedValue({
+			data: [{ id: "tm1", teamId: "t1", userId: "user-2" }],
+			error: null,
+		} as never);
+		await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+		expect(
+			await screen.findByRole("row", { name: /Bob Builder/ }),
+		).toBeInTheDocument();
 	});
 
 	it("says so when the team does not exist", () => {

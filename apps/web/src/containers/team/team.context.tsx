@@ -18,6 +18,9 @@ type TeamContextValue = {
 	/** Organization members who are not in the team yet. */
 	candidates: OrganizationMember[];
 	isLoading: boolean;
+	/** The team's members failed to load. */
+	isMembersError: boolean;
+	retryMembers: () => void;
 	can: (permissions: Record<string, string[]>) => boolean;
 	isPending: boolean;
 	/** Resolves to an error message for the dialog, or null once added. */
@@ -38,13 +41,22 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 	const organizationMembers = (organization?.members ??
 		[]) as OrganizationMember[];
 
-	const { data: teamUserIds, isLoading: membersLoading } = useQuery({
+	const {
+		data: teamUserIds,
+		isLoading: membersLoading,
+		isError: isMembersError,
+		refetch,
+	} = useQuery({
 		queryKey: [...ORGANIZATION_QUERY_KEY, "team", teamId],
 		enabled: team !== undefined,
 		queryFn: async () => {
-			const { data, error } = await authClient.organization.listTeamMembers({
-				query: { teamId },
-			});
+			// The API's own endpoint (not the plugin's list-team-members, which
+			// only answers people in the team), so owners and admins who
+			// aren't in the team still see its members.
+			const { data, error } = await authClient.$fetch<{ userId: string }[]>(
+				"/organization/team-members",
+				{ method: "GET", query: { teamId } },
+			);
 			if (error) throw new Error(error.message);
 			return (data ?? []).map(({ userId }) => userId);
 		},
@@ -56,6 +68,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 		members: organizationMembers.filter(({ userId }) => inTeam.has(userId)),
 		candidates: organizationMembers.filter(({ userId }) => !inTeam.has(userId)),
 		isLoading: organizationLoading || membersLoading,
+		isMembersError,
+		retryMembers: () => void refetch(),
 		can,
 		isPending,
 		add: (userId) =>

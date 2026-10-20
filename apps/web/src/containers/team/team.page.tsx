@@ -2,8 +2,8 @@ import { ArrowLeft01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
-import { buttonVariants } from "@workspace/ui/components/button";
-import { Button } from "@workspace/ui/components/button";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
+import { Button, buttonVariants } from "@workspace/ui/components/button";
 import {
 	Empty,
 	EmptyDescription,
@@ -17,7 +17,8 @@ import { TeamMembersTable } from "./components/team-members-table";
 import { useTeamContext } from "./team.context";
 
 export function TeamPage() {
-	const { team, isLoading, can } = useTeamContext();
+	const { team, isLoading, isMembersError, retryMembers, can } =
+		useTeamContext();
 	const [addOpen, setAddOpen] = useState(false);
 
 	if (isLoading) {
@@ -46,7 +47,8 @@ export function TeamPage() {
 		);
 	}
 
-	const canManage = can({ team: ["update"] });
+	// Without the member list, "add" would offer people already in the team.
+	const canManage = can({ team: ["update"] }) && !isMembersError;
 
 	return (
 		<div className="flex flex-col gap-6 p-4 md:p-6">
@@ -75,7 +77,18 @@ export function TeamPage() {
 					</Button>
 				)}
 			</header>
-			<TeamMembersTable />
+			{isMembersError ? (
+				<Alert variant="destructive">
+					<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+						{m.teams_members_load_error()}
+						<Button variant="outline" size="sm" onClick={retryMembers}>
+							{m.workspace_retry()}
+						</Button>
+					</AlertDescription>
+				</Alert>
+			) : (
+				<TeamMembersTable />
+			)}
 			<AddMemberDialog open={addOpen && canManage} onOpenChange={setAddOpen} />
 		</div>
 	);
