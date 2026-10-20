@@ -249,6 +249,29 @@ describe("organization plugin", () => {
 		expect(rows[0].organizationId).toBe(other.id);
 	});
 
+	it("refuses it in the user's own locale", async () => {
+		const owner = await signUp("owner10@example.com");
+		const busy = await signUp("ocupado@example.com", { locale: "pt-BR" });
+		const org = await createOrg(owner, "Lambda", "lambda");
+		await createOrg(busy, "Ocupado", "ocupado");
+		const invite = await owner("/organization/invite-member", {
+			email: "ocupado@example.com",
+			role: "member",
+			organizationId: org.id,
+		});
+
+		const accepted = await busy(
+			"/organization/accept-invitation",
+			{ invitationId: invite.data.id },
+			{ "accept-language": "en" },
+		);
+
+		expect(accepted.status).toBe(403);
+		expect(accepted.data.message).toBe(
+			m.auth_error_ALREADY_IN_AN_ORGANIZATION({}, { locale: "pt-BR" }),
+		);
+	});
+
 	it("blocks creating a second organization", async () => {
 		const owner = await signUp("owner6@example.com");
 		await createOrg(owner, "Zeta", "zeta");

@@ -4,7 +4,11 @@ import { baseLocale } from "@workspace/i18n/runtime";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import {
+	APIError,
+	createAuthMiddleware,
+	getSessionFromCtx,
+} from "better-auth/api";
 import {
 	admin,
 	magicLink,
@@ -19,6 +23,7 @@ import * as schema from "../database/schema.js";
 import {
 	authErrorTranslations,
 	isLocale,
+	type Locale,
 	requestLocale,
 	userLocale,
 } from "../i18n/i18n.js";
@@ -84,36 +89,56 @@ const escapeHtml = (value: string) =>
 		.replaceAll(">", "&gt;")
 		.replaceAll('"', "&quot;");
 
-// The organization plugin's invitation callbacks receive no Better Auth
-// context, so this plugin hands them the current request's adapter: it is set
-// by a before-hook on the two endpoints that run those callbacks.
-let organizationAdapter:
-	| {
-			findUserByEmail(
-				email: string,
-			): Promise<{ user: object } | null | undefined>;
-			findMembersByUserId(userId: string): Promise<unknown[]>;
-	  }
-	| undefined;
+// The organization plugin's sendInvitationEmail callback gets no Better Auth
+// context, only the request. The invitee's locale is looked up in a
+// before-hook on /organization/invite-member and handed over keyed by that
+// request, so nothing outlives or leaks across requests.
+const inviteeLocales = new WeakMap<Request, Locale>();
 
-const organizationContext = {
-	id: "organization-context",
+const organizationGuards = {
+	id: "organization-guards",
 	hooks: {
 		before: [
 			{
+				matcher: (context) => context.path === "/organization/invite-member",
+				handler: createAuthMiddleware(async (ctx) => {
+					const email = (ctx.body as { email?: unknown } | undefined)?.email;
+					if (!ctx.request || typeof email !== "string") return;
+					const invitee = await ctx.context.internalAdapter.findUserByEmail(
+						email.toLowerCase(),
+					);
+					inviteeLocales.set(
+						ctx.request,
+						userLocale(invitee?.user, ctx.request.headers),
+					);
+				}),
+			},
+			{
+				// One organization per user: accepting must not create a second
+				// membership (organizationLimit only guards creating one). Checked
+				// here, against this request's own adapter, rather than in the
+				// plugin's beforeAcceptInvitation (which gets no context).
 				matcher: (context) =>
-					context.path === "/organization/invite-member" ||
 					context.path === "/organization/accept-invitation",
 				handler: createAuthMiddleware(async (ctx) => {
-					const { internalAdapter, adapter } = ctx.context;
-					organizationAdapter = {
-						findUserByEmail: (email) => internalAdapter.findUserByEmail(email),
-						findMembersByUserId: (userId) =>
-							adapter.findMany({
-								model: "member",
-								where: [{ field: "userId", value: userId }],
-							}),
-					};
+					const session = await getSessionFromCtx(ctx);
+					// No session: the endpoint itself answers 401.
+					if (!session) return;
+					const memberships = await ctx.context.adapter.count({
+						model: "member",
+						where: [{ field: "userId", value: session.user.id }],
+					});
+					if (memberships > 0) {
+						// Thrown before the endpoint runs, so the i18n plugin's
+						// after-hook never sees it: translate it the same way here
+						// (the user's stored locale, else Accept-Language).
+						const locale = userLocale(session.user, ctx.headers);
+						throw new APIError("FORBIDDEN", {
+							code: "ALREADY_IN_AN_ORGANIZATION",
+							message: m.auth_error_ALREADY_IN_AN_ORGANIZATION({}, { locale }),
+							originalMessage: "User already belongs to an organization",
+						});
+					}
 				}),
 			},
 		],
@@ -246,7 +271,7 @@ export const authOptions: BetterAuthOptions = {
 			},
 			backupCodeOptions: { storeBackupCodes: "encrypted" },
 		}),
-		organizationContext,
+		organizationGuards,
 		organization({
 			teams: { enabled: true },
 			// Regular users get exactly one organization, created at onboarding.
@@ -258,8 +283,9 @@ export const authOptions: BetterAuthOptions = {
 				{ email, invitation, inviter, organization },
 				request,
 			) => {
-				const invitee = await organizationAdapter?.findUserByEmail(email);
-				const locale = userLocale(invitee?.user, request?.headers);
+				const locale =
+					(request && inviteeLocales.get(request)) ??
+					requestLocale(request?.headers);
 				const roleLabel =
 					ROLE_LABELS[invitation.role as keyof typeof ROLE_LABELS];
 				const role = roleLabel ? roleLabel({}, { locale }) : invitation.role;
@@ -285,21 +311,6 @@ export const authOptions: BetterAuthOptions = {
 						`<p>${m.email_invitation_expiry({ days: INVITATION_EXPIRY_DAYS }, { locale })}</p>`,
 					].join(""),
 				});
-			},
-			organizationHooks: {
-				// One organization per user: accepting must not create a second
-				// membership (organizationLimit only guards creating one).
-				beforeAcceptInvitation: async ({ user }) => {
-					const memberships = await organizationAdapter?.findMembersByUserId(
-						user.id,
-					);
-					if (memberships?.length) {
-						throw new APIError("FORBIDDEN", {
-							code: "ALREADY_IN_AN_ORGANIZATION",
-							message: "User already belongs to an organization",
-						});
-					}
-				},
 			},
 		}),
 		teamMembers,
