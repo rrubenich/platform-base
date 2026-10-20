@@ -11,3 +11,52 @@ export async function apiGet(path: string): Promise<string> {
 	}
 	return response.text();
 }
+
+/** A failed API call, carrying the response status and Nest's message. */
+export class ApiError extends Error {
+	readonly status: number;
+
+	constructor(status: number, message: string) {
+		super(message);
+		this.name = "ApiError";
+		this.status = status;
+	}
+}
+
+/**
+ * A JSON API call with the session cookie, for authenticated routes.
+ * `credentials: "include"` matters when VITE_API_URL points at another
+ * origin; in dev, requests go through Vite's same-origin proxy.
+ */
+export async function apiJson<T>(
+	path: string,
+	{ method = "GET", body }: { method?: string; body?: unknown } = {},
+): Promise<T> {
+	const response = await fetch(`${API_URL}${path}`, {
+		method,
+		credentials: "include",
+		headers: {
+			"Accept-Language": getLocale(),
+			...(body === undefined ? {} : { "Content-Type": "application/json" }),
+		},
+		body: body === undefined ? undefined : JSON.stringify(body),
+	});
+
+	if (!response.ok) {
+		// Nest errors are { message: string | string[] }; validation errors
+		// list every failed constraint.
+		const data = (await response.json().catch(() => null)) as {
+			message?: string | string[];
+		} | null;
+		const message = Array.isArray(data?.message)
+			? data.message.join(", ")
+			: data?.message;
+		throw new ApiError(
+			response.status,
+			message || `API request failed: ${response.status}`,
+		);
+	}
+
+	if (response.status === 204) return undefined as T;
+	return (await response.json()) as T;
+}
