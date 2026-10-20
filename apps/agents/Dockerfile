@@ -31,7 +31,8 @@ RUN uv sync --locked --no-dev
 
 COPY --from=docs /docs /srv/platform-base
 
-# `::` so apps/api reaches it over Railway's private (IPv6) network.
+# 0.0.0.0, not `::`: asyncio makes `::` IPv6-only, which fails Railway's
+# healthcheck; the private network resolves to IPv4 in this project too.
 # The worker overrides this with:
 #   opentelemetry-instrument arq agents_service.worker.WorkerSettings
-CMD ["sh", "-c", "exec opentelemetry-instrument fastapi run src/agents_service/main.py --host :: --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec opentelemetry-instrument fastapi run src/agents_service/main.py --host 0.0.0.0 --port ${PORT:-8000}"]
