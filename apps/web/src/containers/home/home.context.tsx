@@ -1,27 +1,40 @@
-import { useQuery } from "@tanstack/react-query";
-import { createContext, type ReactNode, useContext } from "react";
-import { apiGet } from "@/lib/api";
+import { useNavigate } from "@tanstack/react-router";
+import { createContext, type ReactNode, useContext, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+
+export type HomeUser = {
+	name: string;
+	email: string;
+	image?: string | null;
+};
 
 type HomeContextValue = {
-	greeting: string | undefined;
-	isLoading: boolean;
-	isError: boolean;
-	refetch: () => void;
+	user: HomeUser | undefined;
+	signOut: () => Promise<void>;
+	isSigningOut: boolean;
 };
 
 const HomeContext = createContext<HomeContextValue | undefined>(undefined);
 
 export function HomeProvider({ children }: { children: ReactNode }) {
-	const { data, isLoading, isError, refetch } = useQuery({
-		queryKey: ["hello"],
-		queryFn: () => apiGet(""),
-	});
+	const navigate = useNavigate();
+	const { data: session } = authClient.useSession();
+	const [isSigningOut, setSigningOut] = useState(false);
+
+	async function signOut() {
+		setSigningOut(true);
+		try {
+			await authClient.signOut();
+			await navigate({ to: "/sign-in" });
+		} finally {
+			setSigningOut(false);
+		}
+	}
 
 	const value: HomeContextValue = {
-		greeting: data,
-		isLoading,
-		isError,
-		refetch,
+		user: session?.user,
+		signOut,
+		isSigningOut,
 	};
 
 	return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;

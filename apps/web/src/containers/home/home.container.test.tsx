@@ -1,68 +1,65 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { apiGet } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { HomeContainer } from "./home.container";
 
-vi.mock("@/lib/api", () => ({
-	apiGet: vi.fn(),
-}));
+const navigate = vi.fn();
 
 vi.mock("@tanstack/react-router", () => ({
+	useNavigate: () => navigate,
 	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
 		<a href={to}>{children}</a>
 	),
 }));
 
-function renderHome() {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
-
-	return render(
-		<QueryClientProvider client={queryClient}>
-			<HomeContainer />
-		</QueryClientProvider>,
-	);
-}
+vi.mock("@/lib/auth-client", () => ({
+	authClient: {
+		useSession: vi.fn(),
+		signOut: vi.fn(),
+		updateUser: vi.fn(),
+	},
+}));
 
 describe("HomeContainer", () => {
 	beforeEach(() => {
-		vi.mocked(apiGet).mockReset();
+		navigate.mockReset();
+		vi.mocked(authClient.signOut)
+			.mockReset()
+			.mockResolvedValue({} as never);
+		vi.mocked(authClient.useSession).mockReturnValue({
+			data: {
+				session: { id: "s1" },
+				user: { id: "user-1", name: "Jane Doe", email: "jane@example.com" },
+			},
+		} as never);
 	});
 
-	it("fetches the greeting from the API and displays it", async () => {
-		vi.mocked(apiGet).mockResolvedValue("Hello World!");
-
-		renderHome();
+	it("welcomes the signed-in user by name", () => {
+		render(<HomeContainer />);
 
 		expect(
-			screen.getByText("API says: Connecting to API…"),
+			screen.getByRole("heading", { name: "Welcome, Jane Doe" }),
 		).toBeInTheDocument();
-		expect(
-			await screen.findByText("API says: Hello World!"),
-		).toBeInTheDocument();
-		expect(apiGet).toHaveBeenCalledWith("");
+		expect(screen.getByText("JD")).toBeInTheDocument();
 	});
 
-	it("shows an error state and recovers when the user refetches", async () => {
-		vi.mocked(apiGet).mockRejectedValueOnce(new Error("network down"));
-		vi.mocked(apiGet).mockResolvedValueOnce("Hello World!");
-
-		renderHome();
+	it("links to the security settings", () => {
+		render(<HomeContainer />);
 
 		expect(
-			await screen.findByText("API says: Could not reach the API"),
-		).toBeInTheDocument();
+			screen.getByRole("link", { name: "Security settings" }),
+		).toHaveAttribute("href", "/settings/security");
+	});
 
-		await userEvent.click(
-			screen.getByRole("button", { name: "Refetch hello world" }),
+	it("signs out and goes to the sign-in page", async () => {
+		render(<HomeContainer />);
+
+		await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: "/sign-in" }),
 		);
-
-		expect(
-			await screen.findByText("API says: Hello World!"),
-		).toBeInTheDocument();
-		expect(apiGet).toHaveBeenCalledTimes(2);
+		expect(authClient.signOut).toHaveBeenCalled();
 	});
 });
