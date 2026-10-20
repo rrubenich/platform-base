@@ -4,6 +4,7 @@ import {
 	inferAdditionalFields,
 	magicLinkClient,
 	organizationClient,
+	twoFactorClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
@@ -29,6 +30,9 @@ export const authClient = createAuthClient({
 		organizationClient(),
 		adminClient(),
 		magicLinkClient(),
+		// No onTwoFactorRedirect: the sign-in context reads `twoFactorRedirect`
+		// from the response and routes to /two-factor itself.
+		twoFactorClient(),
 		inferAdditionalFields({
 			user: { locale: { type: "string", required: false } },
 		}),

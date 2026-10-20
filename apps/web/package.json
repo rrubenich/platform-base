@@ -27,6 +27,7 @@
 		"better-auth": "^1.7.10",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
+		"react-qr-code": "^2.2.0",
 		"serve": "^14.2.6"
 	},
 	"devDependencies": {

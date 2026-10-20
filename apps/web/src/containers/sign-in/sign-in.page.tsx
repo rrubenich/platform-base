@@ -1,8 +1,8 @@
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { LoginForm } from "@/components/login-form";
-import { useLoginContext } from "./login.context";
+import { SignInForm } from "./components/sign-in-form";
+import { useSignInContext } from "./sign-in.context";
 
-export function LoginPage() {
+export function SignInPage() {
 	const {
 		mode,
 		setMode,
@@ -11,18 +11,18 @@ export function LoginPage() {
 		magicLinkSent,
 		signInWithPassword,
 		signInWithMagicLink,
-		signInWithGoogle,
-	} = useLoginContext();
+		signInWithSocial,
+	} = useSignInContext();
 
 	return (
 		<div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
 			<div className="flex w-full max-w-sm flex-col gap-4">
-				<LoginForm
+				<SignInForm
 					mode={mode}
 					onModeChange={setMode}
 					onPasswordSignIn={signInWithPassword}
 					onMagicLinkSignIn={signInWithMagicLink}
-					onGoogleSignIn={signInWithGoogle}
+					onSocialSignIn={signInWithSocial}
 					isSubmitting={isSubmitting}
 					error={error}
 					magicLinkSent={magicLinkSent}

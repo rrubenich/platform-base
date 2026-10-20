@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { Button } from "@workspace/ui/components/button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -26,6 +27,9 @@ export function HomePage() {
 				<div className="text-muted-foreground font-mono text-xs">
 					({m.home_dark_mode_press()} <kbd>d</kbd> {m.home_dark_mode_toggle()})
 				</div>
+				<Link to="/settings/security" className="underline underline-offset-4">
+					{m.home_security_link()}
+				</Link>
 				<LocaleSwitcher className="justify-start" />
 			</div>
 		</div>

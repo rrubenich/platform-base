@@ -9,6 +9,12 @@ vi.mock("@/lib/api", () => ({
 	apiGet: vi.fn(),
 }));
 
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+		<a href={to}>{children}</a>
+	),
+}));
+
 function renderHome() {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },

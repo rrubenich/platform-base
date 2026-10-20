@@ -1,31 +1,36 @@
 import { useNavigate } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { createContext, type ReactNode, useContext, useState } from "react";
-import type { LoginMode } from "@/components/login-form";
+import {
+	type SocialProvider,
+	socialProviderName,
+} from "@/components/social-sign-on";
+import { appURL } from "@/lib/app-url";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error";
+import type { SignInMode } from "./components/sign-in-form";
 
-type LoginContextValue = {
-	mode: LoginMode;
-	setMode: (mode: LoginMode) => void;
+type SignInContextValue = {
+	mode: SignInMode;
+	setMode: (mode: SignInMode) => void;
 	isSubmitting: boolean;
 	error: string | null;
 	magicLinkSent: boolean;
 	signInWithPassword: (values: { email: string; password: string }) => void;
 	signInWithMagicLink: (values: { email: string }) => void;
-	signInWithGoogle: () => void;
+	signInWithSocial: (provider: SocialProvider) => void;
 };
 
-const LoginContext = createContext<LoginContextValue | undefined>(undefined);
+const SignInContext = createContext<SignInContextValue | undefined>(undefined);
 
-export function LoginProvider({ children }: { children: ReactNode }) {
+export function SignInProvider({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
-	const [mode, setModeState] = useState<LoginMode>("password");
+	const [mode, setModeState] = useState<SignInMode>("password");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-	function setMode(nextMode: LoginMode) {
+	function setMode(nextMode: SignInMode) {
 		setError(null);
 		setMagicLinkSent(false);
 		setModeState(nextMode);
@@ -38,16 +43,23 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 		setIsSubmitting(true);
 		setError(null);
 
-		const { error: signInError } = await authClient.signIn.email({
+		const { data, error: signInError } = await authClient.signIn.email({
 			email: values.email,
 			password: values.password,
-			callbackURL: "/",
+			callbackURL: appURL("/"),
 		});
 
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(authErrorMessage(signInError, m.login_error_password()));
+			setError(authErrorMessage(signInError, m.sign_in_error_password()));
+			return;
+		}
+
+		// With 2FA on, no session exists yet: the server set a short-lived
+		// two-factor cookie and expects a code on /two-factor first.
+		if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+			navigate({ to: "/two-factor" });
 			return;
 		}
 
@@ -61,36 +73,41 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 
 		const { error: signInError } = await authClient.signIn.magicLink({
 			email: values.email,
-			callbackURL: "/",
+			callbackURL: appURL("/"),
 		});
 
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(authErrorMessage(signInError, m.login_error_magic_link()));
+			setError(authErrorMessage(signInError, m.sign_in_error_magic_link()));
 			return;
 		}
 
 		setMagicLinkSent(true);
 	}
 
-	async function signInWithGoogle() {
+	async function signInWithSocial(provider: SocialProvider) {
 		setIsSubmitting(true);
 		setError(null);
 
 		const { error: signInError } = await authClient.signIn.social({
-			provider: "google",
-			callbackURL: "/",
+			provider,
+			callbackURL: appURL("/"),
 		});
 
 		setIsSubmitting(false);
 
 		if (signInError) {
-			setError(authErrorMessage(signInError, m.login_error_google()));
+			setError(
+				authErrorMessage(
+					signInError,
+					m.sign_in_error_social({ provider: socialProviderName(provider) }),
+				),
+			);
 		}
 	}
 
-	const value: LoginContextValue = {
+	const value: SignInContextValue = {
 		mode,
 		setMode,
 		isSubmitting,
@@ -98,19 +115,19 @@ export function LoginProvider({ children }: { children: ReactNode }) {
 		magicLinkSent,
 		signInWithPassword,
 		signInWithMagicLink,
-		signInWithGoogle,
+		signInWithSocial,
 	};
 
 	return (
-		<LoginContext.Provider value={value}>{children}</LoginContext.Provider>
+		<SignInContext.Provider value={value}>{children}</SignInContext.Provider>
 	);
 }
 
-export function useLoginContext() {
-	const context = useContext(LoginContext);
+export function useSignInContext() {
+	const context = useContext(SignInContext);
 
 	if (context === undefined) {
-		throw new Error("useLoginContext must be used within a LoginProvider");
+		throw new Error("useSignInContext must be used within a SignInProvider");
 	}
 
 	return context;

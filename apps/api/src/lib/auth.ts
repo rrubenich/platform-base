@@ -4,7 +4,13 @@ import { baseLocale } from "@workspace/i18n/runtime";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, magicLink, openAPI, organization } from "better-auth/plugins";
+import {
+	admin,
+	magicLink,
+	openAPI,
+	organization,
+	twoFactor,
+} from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { Resend } from "resend";
@@ -46,6 +52,9 @@ async function sendEmail(options: {
 	}
 }
 
+// How long an emailed two-factor code stays valid.
+const TWO_FACTOR_OTP_MINUTES = 5;
+
 // Standard Schema validator for `user.locale`, so clients can't store a
 // locale the messages don't have.
 const localeValidator = {
@@ -59,11 +68,16 @@ const localeValidator = {
 	},
 };
 
-const authOptions: BetterAuthOptions = {
+export const authOptions: BetterAuthOptions = {
 	database: drizzleAdapter(db, { provider: "pg" }),
 	baseURL: process.env.BETTER_AUTH_URL,
 	secret: process.env.BETTER_AUTH_SECRET,
-	trustedOrigins: [process.env.WEB_URL ?? "http://localhost:5173"],
+	trustedOrigins: [
+		process.env.WEB_URL ?? "http://localhost:5173",
+		// Apple posts its OAuth callback (response_mode=form_post) from this
+		// origin, which the CSRF origin check would otherwise reject.
+		"https://appleid.apple.com",
+	],
 	user: {
 		additionalFields: {
 			// The user's preferred locale; source of truth for emails and
@@ -80,6 +94,11 @@ const authOptions: BetterAuthOptions = {
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
+		// Better Auth's defaults, set explicitly because apps/web mirrors them
+		// for client-side validation (src/lib/password-policy.ts).
+		minPasswordLength: 8,
+		maxPasswordLength: 128,
+		revokeSessionsOnPasswordReset: true,
 		sendResetPassword: async ({ user, url }, request) => {
 			const locale = userLocale(user, request?.headers);
 			await sendEmail({
@@ -106,6 +125,19 @@ const authOptions: BetterAuthOptions = {
 			clientId: process.env.GOOGLE_CLIENT_ID ?? "",
 			clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 		},
+		apple: {
+			clientId: process.env.APPLE_CLIENT_ID ?? "",
+			// A JWT signed with the Sign in with Apple private key; Apple caps
+			// its lifetime at 6 months, so it has to be regenerated before then.
+			clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
+		},
+		microsoft: {
+			clientId: process.env.MICROSOFT_CLIENT_ID ?? "",
+			clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
+			// "common" accepts both work/school and personal Microsoft accounts.
+			tenantId: process.env.MICROSOFT_TENANT_ID ?? "common",
+			prompt: "select_account",
+		},
 	},
 	plugins: [
 		magicLink({
@@ -129,6 +161,25 @@ const authOptions: BetterAuthOptions = {
 			defaultLocale: baseLocale,
 			detection: ["session", "callback"],
 			getLocale: (ctx) => requestLocale(ctx.headers),
+		}),
+		// Only gates email/password sign-in: magic-link and social sign-ins
+		// skip the second factor (the plugin hooks /sign-in/email only).
+		twoFactor({
+			// Shown as the account's name in authenticator apps.
+			issuer: "Platform Base",
+			otpOptions: {
+				period: TWO_FACTOR_OTP_MINUTES,
+				storeOTP: "encrypted",
+				sendOTP: async ({ user, otp }, ctx) => {
+					const locale = userLocale(user, ctx?.headers);
+					await sendEmail({
+						to: user.email,
+						subject: m.email_two_factor_otp_subject({}, { locale }),
+						html: `<p>${m.email_two_factor_otp_body({ otp, minutes: TWO_FACTOR_OTP_MINUTES }, { locale })}</p>`,
+					});
+				},
+			},
+			backupCodeOptions: { storeBackupCodes: "encrypted" },
 		}),
 		organization(),
 		admin(),
