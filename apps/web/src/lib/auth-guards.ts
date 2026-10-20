@@ -47,7 +47,7 @@ async function firstOrganization() {
 /**
  * `beforeLoad` guard for the workspace: signed-out users go to sign-in, admins
  * to the console, users without an organization to onboarding. A member with
- * no active organization gets their (only) one activated.
+ * no or another active organization gets their (only) one activated.
  */
 export async function requireOrganization() {
 	const session = await currentSession();
@@ -57,7 +57,8 @@ export async function requireOrganization() {
 	const organization = await firstOrganization();
 	if (!organization) throw redirect({ to: "/onboarding" });
 
-	if (!session.session.activeOrganizationId) {
+	// Also when another (e.g. a since-left) organization is still active.
+	if (session.session.activeOrganizationId !== organization.id) {
 		const { error } = await authClient.organization.setActive({
 			organizationId: organization.id,
 		});
@@ -71,11 +72,12 @@ export async function requireOrganization() {
 
 /**
  * `beforeLoad` guard for onboarding: only signed-in users who don't belong to
- * an organization yet.
+ * an organization yet. Admins go to the console, as from the workspace.
  */
 export async function requireNoOrganization() {
 	const session = await currentSession();
 	if (!session) throw redirect({ to: "/sign-in" });
+	if (await hasAdminAccess(session)) throw redirect({ to: "/admin" });
 	if (await firstOrganization()) throw redirect({ to: "/" });
 
 	return { session };

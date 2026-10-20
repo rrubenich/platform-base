@@ -190,6 +190,18 @@ describe("requireOrganization", () => {
 		});
 	});
 
+	it("activates the user's organization when another one is active", async () => {
+		signedInWith("org-stale");
+		permission(false);
+		organizations(["org-1"]);
+		vi.mocked(authClient.organization.setActive).mockResolvedValue({} as never);
+
+		await expect(requireOrganization()).resolves.toBeDefined();
+		expect(authClient.organization.setActive).toHaveBeenCalledWith({
+			organizationId: "org-1",
+		});
+	});
+
 	it("leaves an already active organization alone", async () => {
 		signedInWith("org-1");
 		permission(false);
@@ -214,6 +226,7 @@ describe("organization lookup failures", () => {
 
 	it("does not let a member into onboarding when the lookup fails", async () => {
 		signedInWith(null);
+		permission(false);
 		vi.mocked(authClient.organization.list).mockResolvedValue({
 			data: null,
 			error: { message: "boom" },
@@ -244,8 +257,19 @@ describe("requireNoOrganization", () => {
 		});
 	});
 
+	it("sends superadmins to the admin console", async () => {
+		signedInWith(null);
+		permission(true);
+		organizations([]);
+
+		await expect(requireNoOrganization()).rejects.toEqual({
+			redirect: "/admin",
+		});
+	});
+
 	it("sends members home", async () => {
 		signedInWith(null);
+		permission(false);
 		organizations(["org-1"]);
 
 		await expect(requireNoOrganization()).rejects.toEqual({ redirect: "/" });
@@ -253,6 +277,7 @@ describe("requireNoOrganization", () => {
 
 	it("lets users without an organization through", async () => {
 		signedInWith(null);
+		permission(false);
 		organizations([]);
 
 		await expect(requireNoOrganization()).resolves.toBeDefined();
