@@ -71,3 +71,4 @@ Served by Better Auth itself (`auth/mount-auth-handler.ts`, configured in `lib/a
 | `two-factor/*` | TOTP, emailed OTP and backup codes. |
 | `admin/*` | Admin plugin: list/ban/impersonate users, set roles, revoke sessions, `has-permission`. |
 | `organization/*` | Organization plugin as used by members inside their own organizations (the superadmin equivalents are the `/api/admin/organizations` routes above). |
+| `GET organization/team-members?teamId=` | Organization member. Our own endpoint (`lib/team-members.ts`): a team's members for any member of the team's organization — the plugin's `organization/list-team-members` only answers people in that team, so owners and admins outside it couldn't see it. |

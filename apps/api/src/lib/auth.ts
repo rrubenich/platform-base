@@ -3,8 +3,8 @@ import { m } from "@workspace/i18n/messages";
 import { baseLocale } from "@workspace/i18n/runtime";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import {
 	admin,
 	magicLink,
@@ -23,6 +23,7 @@ import {
 	userLocale,
 } from "../i18n/i18n.js";
 import { ac, roles } from "./permissions.js";
+import { teamMembers } from "./team-members.js";
 
 // Standalone pool/db instance (mirrors database/migrate.ts) so this config
 // file can be loaded directly by the `better-auth` CLI and by main.ts alike,
@@ -301,6 +302,7 @@ export const authOptions: BetterAuthOptions = {
 				},
 			},
 		}),
+		teamMembers,
 		admin({
 			ac,
 			roles,

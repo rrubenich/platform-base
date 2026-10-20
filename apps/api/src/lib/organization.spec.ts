@@ -264,6 +264,65 @@ describe("organization plugin", () => {
 		);
 	});
 
+	it("lets an owner who is not in a team list its members", async () => {
+		const owner = await signUp("owner8@example.com");
+		const org = await createOrg(owner, "Theta", "theta");
+		const team = await owner("/organization/create-team", {
+			name: "Design",
+			organizationId: org.id,
+		});
+		expect(team.status).toBe(200);
+		const memberUser = await signUp("teammate@example.com");
+		const invite = await owner("/organization/invite-member", {
+			email: "teammate@example.com",
+			role: "member",
+			organizationId: org.id,
+			teamId: team.data.id,
+		});
+		const accepted = await memberUser("/organization/accept-invitation", {
+			invitationId: invite.data.id,
+		});
+		expect(accepted.status).toBe(200);
+
+		const listed = await owner(
+			`/organization/team-members?teamId=${team.data.id}`,
+		);
+
+		expect(listed.status).toBe(200);
+		expect(listed.data).toEqual([
+			expect.objectContaining({
+				teamId: team.data.id,
+				userId: findUser("teammate@example.com").id,
+			}),
+		]);
+		expect(listed.data[0]).not.toHaveProperty("membershipKey");
+	});
+
+	it("refuses to list a team's members to someone from another organization", async () => {
+		const owner = await signUp("owner9@example.com");
+		const org = await createOrg(owner, "Iota", "iota");
+		const team = await owner("/organization/create-team", {
+			name: "Ops",
+			organizationId: org.id,
+		});
+		const outsider = await signUp("outsider@example.com");
+		await createOrg(outsider, "Kappa", "kappa");
+
+		const listed = await outsider(
+			`/organization/team-members?teamId=${team.data.id}`,
+		);
+
+		expect(listed.status).toBe(403);
+		expect(listed.data.code).toBe("USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION");
+	});
+
+	it("requires a session to list a team's members", async () => {
+		const listed = await createClient()(
+			"/organization/team-members?teamId=anything",
+		);
+		expect(listed.status).toBe(401);
+	});
+
 	it("invitations expire after 7 days", async () => {
 		const owner = await signUp("owner7@example.com");
 		const org = await createOrg(owner, "Eta", "eta");
