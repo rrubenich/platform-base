@@ -25,8 +25,9 @@ export class ApiError extends Error {
 
 /**
  * A JSON API call with the session cookie, for authenticated routes.
- * `credentials: "include"` matters when VITE_API_URL points at another
- * origin; in dev, requests go through Vite's same-origin proxy.
+ * Requests stay same-origin (Vite's proxy in dev, server/index.ts when
+ * deployed); `credentials: "include"` only matters if VITE_API_URL is ever
+ * pointed at another origin.
  */
 export async function apiJson<T>(
 	path: string,
