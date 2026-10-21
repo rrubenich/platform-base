@@ -14,7 +14,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .config import Settings, get_settings
+from ..config import Settings, get_settings
 
 ISSUER = "platform-base-api"
 AUDIENCE = "platform-base-agents"

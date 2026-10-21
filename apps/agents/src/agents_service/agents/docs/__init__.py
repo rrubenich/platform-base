@@ -1,11 +1,7 @@
-"""Docs assistant for the admin console (token scope `docs`): explains how
-Platform Base is built, answering from the repository's Markdown docs.
-
-- `agent.py`: instructions and the LangGraph graph (`build`)
-- `library.py`: the docs it may read, and the tools over them
-- `router.py`: `/v1/docs` routes, chat over SSE
+"""Docs assistant for the platform's administrators (token scope `docs`),
+answering from the repository's Markdown docs. See `agent.py`.
 """
 
-from .router import router
+from .agent import agent
 
-__all__ = ["router"]
+__all__ = ["agent"]

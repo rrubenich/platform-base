@@ -1,0 +1,10 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": ["."],
+  "graphs": {
+    "assistant": "./src/agents_service/studio.py:assistant",
+    "docs": "./src/agents_service/studio.py:docs"
+  },
+  "env": ".env",
+  "python_version": "3.13"
+}

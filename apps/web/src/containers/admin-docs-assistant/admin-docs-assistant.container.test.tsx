@@ -11,7 +11,7 @@ const stream = vi.mocked(streamAgentChat);
 
 /** Makes the next call play `events`, then end. */
 function replyWith(...events: AgentEvent[]) {
-	stream.mockImplementationOnce(async (_path, _messages, onEvent) => {
+	stream.mockImplementationOnce(async (_path, _turn, onEvent) => {
 		for (const event of events) onEvent(event);
 	});
 }
@@ -38,7 +38,7 @@ describe("AdminDocsAssistantContainer", () => {
 
 		expect(stream).toHaveBeenCalledWith(
 			"/admin/docs-assistant/chat",
-			[{ role: "user", content: suggestion.textContent }],
+			{ message: suggestion.textContent, threadId: undefined },
 			expect.any(Function),
 			expect.any(AbortSignal),
 		);
@@ -71,20 +71,48 @@ describe("AdminDocsAssistantContainer", () => {
 		);
 	});
 
-	it("sends the earlier turns with each new question", async () => {
-		replyWith({ type: "delta", text: "First answer" }, { type: "done" });
-		replyWith({ type: "done" });
+	it("continues the conversation in the thread its first answer named", async () => {
+		replyWith(
+			{ type: "thread", id: "t1" },
+			{ type: "delta", text: "First answer" },
+			{ type: "done" },
+		);
+		replyWith({ type: "thread", id: "t1" }, { type: "done" });
 		render(<AdminDocsAssistantContainer />);
 
 		await ask("First?");
 		await screen.findByText("First answer");
 		await ask("Second?");
 
-		expect(stream.mock.calls[1][1]).toEqual([
-			{ role: "user", content: "First?" },
-			{ role: "assistant", content: "First answer" },
-			{ role: "user", content: "Second?" },
-		]);
+		expect(stream.mock.calls[0][1]).toEqual({
+			message: "First?",
+			threadId: undefined,
+		});
+		expect(stream.mock.calls[1][1]).toEqual({
+			message: "Second?",
+			threadId: "t1",
+		});
+	});
+
+	it("starts a new thread for a new chat", async () => {
+		replyWith(
+			{ type: "thread", id: "t1" },
+			{ type: "delta", text: "First answer" },
+			{ type: "done" },
+		);
+		replyWith({ type: "thread", id: "t2" }, { type: "done" });
+		render(<AdminDocsAssistantContainer />);
+
+		const user = await ask("First?");
+		await screen.findByText("First answer");
+		await user.click(screen.getByRole("button", { name: "New chat" }));
+		await ask("Another topic?");
+
+		expect(stream.mock.calls[1][1]).toEqual({
+			message: "Another topic?",
+			threadId: undefined,
+		});
+		expect(screen.queryByText("First answer")).not.toBeInTheDocument();
 	});
 
 	it("reports an agent failure without losing the conversation", async () => {
@@ -114,7 +142,7 @@ describe("AdminDocsAssistantContainer", () => {
 
 	it("stops the answer being written", async () => {
 		stream.mockImplementationOnce(
-			(_path, _messages, onEvent, signal) =>
+			(_path, _turn, onEvent, signal) =>
 				new Promise((_resolve, reject) => {
 					onEvent({ type: "delta", text: "Partial" });
 					signal?.addEventListener("abort", () =>

@@ -21,7 +21,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	"/v1/assistant/chat": {
+	"/v1/agents/{agent}/chat": {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -31,17 +31,17 @@ export interface paths {
 		get?: never;
 		put?: never;
 		/**
-		 * Chat with the assistant, streamed as server-sent events
-		 * @description Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).
+		 * Chat with an agent, streamed as server-sent events
+		 * @description Events: `thread` (`{id}`) first, `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool or asks another agent (`ask_<agent>`), then `done` or `error` (`{code, message}`).
 		 */
-		post: operations["chat_v1_assistant_chat_post"];
+		post: operations["chat_v1_agents__agent__chat_post"];
 		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
 		trace?: never;
 	};
-	"/v1/assistant/jobs": {
+	"/v1/agents/{agent}/jobs": {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -50,15 +50,15 @@ export interface paths {
 		};
 		get?: never;
 		put?: never;
-		/** Run the assistant in the background */
-		post: operations["create_job_v1_assistant_jobs_post"];
+		/** Run an agent in the background */
+		post: operations["create_job_v1_agents__agent__jobs_post"];
 		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
 		trace?: never;
 	};
-	"/v1/assistant/jobs/{job_id}": {
+	"/v1/agents/{agent}/jobs/{job_id}": {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -66,7 +66,7 @@ export interface paths {
 			cookie?: never;
 		};
 		/** A background job's status and result */
-		get: operations["get_job_v1_assistant_jobs__job_id__get"];
+		get: operations["get_job_v1_agents__agent__jobs__job_id__get"];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -75,20 +75,17 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	"/v1/docs/chat": {
+	"/v1/agents/{agent}/threads/{thread_id}": {
 		parameters: {
 			query?: never;
 			header?: never;
 			path?: never;
 			cookie?: never;
 		};
-		get?: never;
+		/** A conversation's messages, to reopen it */
+		get: operations["get_thread_v1_agents__agent__threads__thread_id__get"];
 		put?: never;
-		/**
-		 * Ask how Platform Base is built, answered from the project's docs (SSE)
-		 * @description Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).
-		 */
-		post: operations["chat_v1_docs_chat_post"];
+		post?: never;
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -111,8 +108,10 @@ export interface components {
 		};
 		/** ChatRequest */
 		ChatRequest: {
-			/** Messages */
-			messages: components["schemas"]["ChatMessage"][];
+			/** Message */
+			message: string;
+			/** Thread Id */
+			thread_id?: string | null;
 		};
 		/** HTTPValidationError */
 		HTTPValidationError: {
@@ -156,6 +155,13 @@ export interface components {
 			 */
 			status: "queued" | "running" | "succeeded" | "failed";
 		};
+		/** ThreadView */
+		ThreadView: {
+			/** Id */
+			id: string;
+			/** Messages */
+			messages: components["schemas"]["ChatMessage"][];
+		};
 		/** ValidationError */
 		ValidationError: {
 			/** Context */
@@ -198,11 +204,13 @@ export interface operations {
 			};
 		};
 	};
-	chat_v1_assistant_chat_post: {
+	chat_v1_agents__agent__chat_post: {
 		parameters: {
 			query?: never;
 			header?: never;
-			path?: never;
+			path: {
+				agent: "assistant" | "docs";
+			};
 			cookie?: never;
 		};
 		requestBody: {
@@ -231,11 +239,13 @@ export interface operations {
 			};
 		};
 	};
-	create_job_v1_assistant_jobs_post: {
+	create_job_v1_agents__agent__jobs_post: {
 		parameters: {
 			query?: never;
 			header?: never;
-			path?: never;
+			path: {
+				agent: "assistant" | "docs";
+			};
 			cookie?: never;
 		};
 		requestBody: {
@@ -264,12 +274,13 @@ export interface operations {
 			};
 		};
 	};
-	get_job_v1_assistant_jobs__job_id__get: {
+	get_job_v1_agents__agent__jobs__job_id__get: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path: {
 				job_id: string;
+				agent: "assistant" | "docs";
 			};
 			cookie?: never;
 		};
@@ -302,18 +313,17 @@ export interface operations {
 			};
 		};
 	};
-	chat_v1_docs_chat_post: {
+	get_thread_v1_agents__agent__threads__thread_id__get: {
 		parameters: {
 			query?: never;
 			header?: never;
-			path?: never;
+			path: {
+				thread_id: string;
+				agent: "assistant" | "docs";
+			};
 			cookie?: never;
 		};
-		requestBody: {
-			content: {
-				"application/json": components["schemas"]["ChatRequest"];
-			};
-		};
+		requestBody?: never;
 		responses: {
 			/** @description Successful Response */
 			200: {
@@ -321,8 +331,15 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					"text/event-stream": unknown;
+					"application/json": components["schemas"]["ThreadView"];
 				};
+			};
+			/** @description No such thread for this caller */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Validation Error */
 			422: {

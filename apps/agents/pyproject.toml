@@ -12,10 +12,13 @@ dependencies = [
     "langchain>=1.4.6",
     "langchain-openai>=1.7.2",
     "langgraph>=1.2.16",
+    "langgraph-checkpoint-postgres>=3.2.0",
+    "langsmith>=0.14.11",
     "opentelemetry-distro>=0.66b1",
     "opentelemetry-exporter-otlp-proto-http>=1.45.1",
     "opentelemetry-instrumentation-fastapi>=0.66b1",
     "opentelemetry-instrumentation-redis>=0.66b1",
+    "psycopg[binary,pool]>=3.3.6",
     "pydantic-settings>=2.16.1",
     "pyjwt[crypto]>=2.15.1",
 ]
@@ -27,6 +30,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "fakeredis>=2.40.0",
+    "langgraph-cli[inmem]>=0.4.37",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
@@ -42,9 +46,10 @@ select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
+"evals/**" = ["S101"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "evals"]
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
@@ -53,3 +58,6 @@ strict = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: needs a real database (AGENTS_TEST_DATABASE_URL); skipped otherwise",
+]

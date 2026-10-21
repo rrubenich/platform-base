@@ -32,12 +32,12 @@ describe("streamAgentChat", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("posts the conversation and reports events split across chunks", async () => {
+	it("posts the turn and reports events split across chunks", async () => {
 		const fetchMock = vi.fn(
 			async () =>
 				new Response(
 					streamOf(
-						'event: tool\ndata: {"type":"tool","name":"read_doc","args":{"path":"AGENTS.md"}}\n\nevent: delta\ndata: {"type":"del',
+						'event: thread\ndata: {"type":"thread","id":"t1"}\n\nevent: tool\ndata: {"type":"tool","name":"read_doc","args":{"path":"AGENTS.md"}}\n\nevent: delta\ndata: {"type":"del',
 						'ta","text":"Olá"}\n\nevent: done\ndata: {"type":"done"}\n\n',
 					),
 					{ headers: { "Content-Type": "text/event-stream" } },
@@ -48,11 +48,12 @@ describe("streamAgentChat", () => {
 
 		await streamAgentChat(
 			"/admin/docs-assistant/chat",
-			[{ role: "user", content: "Oi" }],
+			{ message: "Oi", threadId: "t1" },
 			(event) => events.push(event),
 		);
 
 		expect(events).toEqual([
+			{ type: "thread", id: "t1" },
 			{ type: "tool", name: "read_doc", args: { path: "AGENTS.md" } },
 			{ type: "delta", text: "Olá" },
 			{ type: "done" },
@@ -64,7 +65,8 @@ describe("streamAgentChat", () => {
 		expect(url).toBe("/api/admin/docs-assistant/chat");
 		expect(init.credentials).toBe("include");
 		expect(JSON.parse(init.body as string)).toEqual({
-			messages: [{ role: "user", content: "Oi" }],
+			message: "Oi",
+			threadId: "t1",
 		});
 	});
 
@@ -76,7 +78,7 @@ describe("streamAgentChat", () => {
 			),
 		);
 
-		const call = streamAgentChat("/x", [], () => {});
+		const call = streamAgentChat("/x", { message: "Oi" }, () => {});
 
 		await expect(call).rejects.toBeInstanceOf(ApiError);
 		await expect(call).rejects.toMatchObject({

@@ -60,10 +60,12 @@ Every route is under the `/api` prefix. The Swagger UI at `/docs` documents them
 | `DELETE /api/admin/organizations/:id/teams/:teamId` | `team:delete` | Delete a team (members stay in the organization). | 〃 |
 | `POST /api/admin/organizations/:id/teams/:teamId/members` | `team:update` | Add an organization member to a team. | 〃 |
 | `DELETE /api/admin/organizations/:id/teams/:teamId/members/:userId` | `team:update` | Remove a user from a team. | 〃 |
-| `POST /api/agents/assistant/chat` | Organization member (active organization) | Chat with the assistant agent; the reply streams back as server-sent events (`delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/agents.controller.ts` |
+| `POST /api/agents/assistant/chat` | Organization member (active organization) | One chat turn with the assistant agent (`{message, threadId?}`); the reply streams back as server-sent events (`thread` first, then `tool`/`delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/agents.controller.ts` |
+| `GET /api/agents/assistant/threads/:id` | Organization member (active organization) | The caller's own conversation with the assistant; 404 for anyone else's. | 〃 |
 | `POST /api/agents/assistant/jobs` | Organization member (active organization) | Queue a background assistant run; returns its id (202). | 〃 |
 | `GET /api/agents/assistant/jobs/:id` | Organization member (active organization) | A background job's status and result; 404 for jobs of other organizations. | 〃 |
-| `POST /api/admin/docs-assistant/chat` | `docs-assistant:use` | Ask the docs assistant agent; the reply streams back as server-sent events (`tool`, `delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/docs-assistant.controller.ts` |
+| `POST /api/admin/docs-assistant/chat` | `docs-assistant:use` | One chat turn with the docs assistant agent (`{message, threadId?}`); the reply streams back as server-sent events (`thread`, `tool`, `delta`, then `done` or `error`). Proxied to `apps/agents`. | `agents/docs-assistant.controller.ts` |
+| `GET /api/admin/docs-assistant/threads/:id` | `docs-assistant:use` | The admin's own conversation with the docs assistant. | 〃 |
 
 ### Agents service (`apps/agents`, internal)
 
@@ -72,10 +74,12 @@ Not reachable from the browser: only `apps/api` calls these, with a 60-second Ed
 | Method & path | Access | Goal | Source |
 |---|---|---|---|
 | `GET /health` | Public (internal network) | Liveness probe. | `health.py` |
-| `POST /v1/assistant/chat` | JWT, scope `assistant`, with `org` | Stream the assistant's reply as SSE. | `agents/assistant/router.py` |
-| `POST /v1/assistant/jobs` | JWT, scope `assistant`, with `org` | Queue an assistant run on the arq worker. | 〃 |
-| `GET /v1/assistant/jobs/{job_id}` | JWT, scope `assistant` (same organization) | Job status and result. | 〃 |
-| `POST /v1/docs/chat` | JWT, scope `docs` | Stream the docs assistant's reply as SSE, with a `tool` event per doc it lists, searches or reads. | `agents/docs/router.py` |
+| `POST /v1/agents/{agent}/chat` | JWT, scope `{agent}`; with `org` for member agents | One chat turn (`{message, thread_id?}`) in the caller's thread, streamed as SSE: `thread`, then `tool`/`delta`, then `done` or `error`. 404 for agents without chat. | `platform/routes.py` |
+| `GET /v1/agents/{agent}/threads/{thread_id}` | JWT, scope `{agent}` | The caller's conversation (user and agent text only); 404 when it's empty or someone else's. | 〃 |
+| `POST /v1/agents/{agent}/jobs` | JWT, scope `{agent}`, with `org` | Queue a run on the arq worker; 404 for agents without jobs. | 〃 |
+| `GET /v1/agents/{agent}/jobs/{job_id}` | JWT, scope `{agent}` (same organization) | Job status and result; 404 for other organizations' or other agents' jobs. | 〃 |
+
+`{agent}` is one of the registered agents (`agents/__init__.py`): `assistant` (member, chat and jobs) and `docs` (platform, chat).
 
 ### Better Auth (`/api/auth/*`)
 

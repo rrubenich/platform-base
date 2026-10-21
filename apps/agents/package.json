@@ -11,6 +11,9 @@
 		"format": "uv run ruff format . && uv run ruff check --fix .",
 		"typecheck": "uv run pyright",
 		"test": "uv run pytest",
-		"openapi": "uv run python -m agents_service.openapi"
+		"openapi": "uv run python -m agents_service.openapi",
+		"eval": "uv run --env-file .env pytest evals -o asyncio_default_test_loop_scope=session -o asyncio_default_fixture_loop_scope=session",
+		"studio": "uv run --env-file .env langgraph dev",
+		"db:checkpoints": "uv run --env-file .env python -m agents_service.checkpoints"
 	}
 }

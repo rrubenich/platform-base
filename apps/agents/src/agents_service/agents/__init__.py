@@ -1,15 +1,12 @@
-"""Every agent, one package each: its prompt and graph, its routes, its
-background jobs and whatever else only it uses live in its folder.
+"""Every agent, one package each: its definition (`agent.py`) and whatever
+else only it uses live in its folder.
 
-Registering an agent here is what mounts its router (`main.py`) and gives
-its jobs to the worker (`worker.py`).
+Registering an agent here is all it takes to serve it: the platform mounts
+its routes (`/v1/agents/<name>/...`), runs its jobs on the worker, builds
+its delegation tools and lists it in LangGraph Studio.
 """
 
-from fastapi import APIRouter
-
+from ..platform import Registry
 from . import assistant, docs
 
-ROUTERS: list[APIRouter] = [assistant.router, docs.router]
-
-# arq job functions, from every agent that runs in the background.
-JOBS = [*assistant.JOBS]
+REGISTRY = Registry([assistant.agent, docs.agent])

@@ -10,10 +10,11 @@ import { DocsAssistantController } from "./docs-assistant.controller.js";
 
 describe("DocsAssistantController", () => {
 	let controller: DocsAssistantController;
-	const agents = { docsChat: vi.fn() };
+	const agents = { chat: vi.fn(), thread: vi.fn() };
 
 	beforeEach(async () => {
-		agents.docsChat.mockReset();
+		agents.chat.mockReset();
+		agents.thread.mockReset();
 
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [DocsAssistantController],
@@ -34,13 +35,15 @@ describe("DocsAssistantController", () => {
 		expect(reflector.get("__guards__", DocsAssistantController)).toEqual([
 			AuthGuard,
 		]);
-		expect(reflector.get(PERMISSIONS_KEY, controller.chat)).toEqual({
-			"docs-assistant": ["use"],
-		});
+		for (const route of [controller.chat, controller.thread]) {
+			expect(reflector.get(PERMISSIONS_KEY, route)).toEqual({
+				"docs-assistant": ["use"],
+			});
+		}
 	});
 
 	it("streams the docs agent's reply for the signed-in admin", async () => {
-		agents.docsChat.mockResolvedValue(new Response("event: done\n\n"));
+		agents.chat.mockResolvedValue(new Response("event: done\n\n"));
 		const written: string[] = [];
 		const response = {
 			on: vi.fn(),
@@ -53,7 +56,7 @@ describe("DocsAssistantController", () => {
 			emit: vi.fn(),
 			removeListener: vi.fn(),
 		};
-		const body = { messages: [{ role: "user" as const, content: "Oi" }] };
+		const body = { message: "Oi", threadId: "t1" };
 
 		await controller.chat(
 			{ user: { id: "admin-1" } } as Session,
@@ -61,13 +64,28 @@ describe("DocsAssistantController", () => {
 			response as unknown as Response,
 		);
 
-		expect(agents.docsChat).toHaveBeenCalledWith(
-			"admin-1",
-			body,
+		expect(agents.chat).toHaveBeenCalledWith(
+			"docs",
+			{ userId: "admin-1" },
+			{ message: "Oi", thread_id: "t1" },
 			expect.any(AbortSignal),
 		);
 		expect(response.set).toHaveBeenCalledWith(
 			expect.objectContaining({ "Content-Type": "text/event-stream" }),
+		);
+	});
+
+	it("reads the signed-in admin's own conversation", async () => {
+		const thread = { id: "t1", messages: [] };
+		agents.thread.mockResolvedValue(thread);
+
+		await expect(
+			controller.thread({ user: { id: "admin-1" } } as Session, "t1"),
+		).resolves.toBe(thread);
+		expect(agents.thread).toHaveBeenCalledWith(
+			"docs",
+			{ userId: "admin-1" },
+			"t1",
 		);
 	});
 });

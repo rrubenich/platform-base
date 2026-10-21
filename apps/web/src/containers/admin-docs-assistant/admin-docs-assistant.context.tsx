@@ -6,11 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	type AgentEvent,
-	type ChatMessage,
-	streamAgentChat,
-} from "@/lib/agent-chat";
+import { type AgentEvent, streamAgentChat } from "@/lib/agent-chat";
 import { ApiError } from "@/lib/api";
 
 const CHAT_PATH = "/admin/docs-assistant/chat";
@@ -40,17 +36,9 @@ const AdminDocsAssistantContext = createContext<
 	AdminDocsAssistantContextValue | undefined
 >(undefined);
 
-/** The conversation the agent sees: settled turns that have text. */
-function history(turns: Turn[]): ChatMessage[] {
-	return turns.flatMap((turn) =>
-		turn.role === "user" || (turn.status === "done" && turn.content)
-			? [{ role: turn.role, content: turn.content }]
-			: [],
-	);
-}
-
-// The conversation lives only in this page's state: nothing is stored, and
-// the whole history is sent with every question.
+// The agents service keeps the conversation (per admin): each question is
+// sent alone, in the thread the first answer named. A new chat starts a new
+// thread; the turns shown here are only this page's view of it.
 export function AdminDocsAssistantProvider({
 	children,
 }: {
@@ -59,6 +47,7 @@ export function AdminDocsAssistantProvider({
 	const [turns, setTurns] = useState<Turn[]>([]);
 	const [isStreaming, setIsStreaming] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
+	const threadRef = useRef<string | undefined>(undefined);
 	const nextId = useRef(0);
 
 	const send = useCallback(
@@ -68,7 +57,7 @@ export function AdminDocsAssistantProvider({
 
 			const userTurn: Turn = { id: nextId.current++, role: "user", content };
 			const answerId = nextId.current++;
-			const messages = [...history(turns), { role: "user" as const, content }];
+			const turn = { message: content, threadId: threadRef.current };
 			setTurns((current) => [
 				...current,
 				userTurn,
@@ -93,7 +82,9 @@ export function AdminDocsAssistantProvider({
 				);
 
 			const onEvent = (event: AgentEvent) => {
-				if (event.type === "delta") {
+				if (event.type === "thread") {
+					threadRef.current = event.id;
+				} else if (event.type === "delta") {
 					updateAnswer((turn) => ({
 						...turn,
 						content: turn.content + event.text,
@@ -111,7 +102,7 @@ export function AdminDocsAssistantProvider({
 			const abort = new AbortController();
 			abortRef.current = abort;
 			setIsStreaming(true);
-			streamAgentChat(CHAT_PATH, messages, onEvent, abort.signal)
+			streamAgentChat(CHAT_PATH, turn, onEvent, abort.signal)
 				.then(() =>
 					updateAnswer((turn) =>
 						turn.status === "streaming" ? { ...turn, status: "done" } : turn,
@@ -130,13 +121,14 @@ export function AdminDocsAssistantProvider({
 					setIsStreaming(false);
 				});
 		},
-		[isStreaming, turns],
+		[isStreaming],
 	);
 
 	const stop = useCallback(() => abortRef.current?.abort(), []);
 
 	const reset = useCallback(() => {
 		abortRef.current?.abort();
+		threadRef.current = undefined;
 		setTurns([]);
 	}, []);
 

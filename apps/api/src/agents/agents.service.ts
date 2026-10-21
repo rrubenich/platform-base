@@ -8,35 +8,36 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { and, eq } from "drizzle-orm";
-import { type CryptoKey, importPKCS8, SignJWT } from "jose";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { type CryptoKey, importPKCS8, SignJWT } from "jose";
 import { DATABASE_CONNECTION } from "../database/database.module.js";
 import { member } from "../database/schema.js";
 import type { Session } from "../lib/auth.js";
-import type { components } from "./agents-api.gen.js";
+import type { components, paths } from "./agents-api.gen.js";
 
 type Schemas = components["schemas"];
 export type ChatRequest = Schemas["ChatRequest"];
 export type JobRequest = Schemas["JobRequest"];
 export type JobCreated = Schemas["JobCreated"];
 export type JobView = Schemas["JobView"];
+export type ThreadView = Schemas["ThreadView"];
+
+/**
+ * Every agent apps/agents serves, from its OpenAPI schema. The token for a
+ * call is scoped to one agent, and apps/agents rejects it on any other
+ * agent's routes, so each controller decides who may reach which agent:
+ * `assistant` for organization members, `docs` for superadmins.
+ */
+export type AgentName =
+	paths["/v1/agents/{agent}/chat"]["post"]["parameters"]["path"]["agent"];
 
 /** Who apps/agents is told is calling. It trusts this, so it must be checked. */
 export type AgentCaller = { userId: string; organizationId: string };
 
-/**
- * Which agent a token is for. apps/agents rejects a token on any other
- * agent's routes, so each controller decides who may reach which agent:
- * `assistant` for organization members, `docs` for superadmins.
- */
-export type AgentScope = "assistant" | "docs";
+/** A caller of a platform-level agent; superadmins have no organization. */
+export type AgentSubject = { userId: string; organizationId?: string };
 
-type TokenSubject = {
-	userId: string;
-	/** Absent for platform-level agents; superadmins have no organization. */
-	organizationId?: string;
-	scope: AgentScope;
-};
+type TokenSubject = AgentSubject & { scope: AgentName };
 
 // Must match ISSUER / AUDIENCE in apps/agents/src/agents_service/auth.py.
 export const AGENTS_JWT_ISSUER = "platform-base-api";
@@ -95,51 +96,68 @@ export class AgentsService {
 		return (await response.json()) as { status: "ok" };
 	}
 
-	/** The upstream SSE response, unread, for the controller to pipe through. */
-	chat(
-		caller: AgentCaller,
-		body: ChatRequest,
-		signal: AbortSignal,
-	): Promise<Response> {
-		return this.send(
-			"/v1/assistant/chat",
-			{ method: "POST", body: JSON.stringify(body), signal },
-			{ ...caller, scope: "assistant" },
-		);
-	}
-
 	/**
-	 * The docs assistant's SSE response, like `chat`. Only for superadmins
-	 * (the controller checks the permission), so no organization is involved.
+	 * One chat turn with `agent`, in the thread `body.thread_id` (a new one
+	 * when absent): the upstream SSE response, unread, for the controller to
+	 * pipe through. Its first event names the thread.
 	 */
-	docsChat(
-		userId: string,
+	chat(
+		agent: AgentName,
+		subject: AgentSubject,
 		body: ChatRequest,
 		signal: AbortSignal,
 	): Promise<Response> {
 		return this.send(
-			"/v1/docs/chat",
+			this.path(agent, "chat"),
 			{ method: "POST", body: JSON.stringify(body), signal },
-			{ userId, scope: "docs" },
+			{ ...subject, scope: agent },
 		);
 	}
 
-	async createJob(caller: AgentCaller, body: JobRequest): Promise<JobCreated> {
+	/** The caller's own thread with `agent`; 404 for anyone else's. */
+	async thread(
+		agent: AgentName,
+		subject: AgentSubject,
+		threadId: string,
+	): Promise<ThreadView> {
 		const response = await this.send(
-			"/v1/assistant/jobs",
+			this.path(agent, "threads", threadId),
+			{ method: "GET" },
+			{ ...subject, scope: agent },
+		);
+		return (await response.json()) as ThreadView;
+	}
+
+	async createJob(
+		agent: AgentName,
+		caller: AgentCaller,
+		body: JobRequest,
+	): Promise<JobCreated> {
+		const response = await this.send(
+			this.path(agent, "jobs"),
 			{ method: "POST", body: JSON.stringify(body) },
-			{ ...caller, scope: "assistant" },
+			{ ...caller, scope: agent },
 		);
 		return (await response.json()) as JobCreated;
 	}
 
-	async getJob(caller: AgentCaller, jobId: string): Promise<JobView> {
+	async getJob(
+		agent: AgentName,
+		caller: AgentCaller,
+		jobId: string,
+	): Promise<JobView> {
 		const response = await this.send(
-			`/v1/assistant/jobs/${encodeURIComponent(jobId)}`,
+			this.path(agent, "jobs", jobId),
 			{ method: "GET" },
-			{ ...caller, scope: "assistant" },
+			{ ...caller, scope: agent },
 		);
 		return (await response.json()) as JobView;
+	}
+
+	private path(agent: AgentName, ...segments: string[]): string {
+		return ["/v1/agents", agent, ...segments]
+			.map((segment, index) => (index ? encodeURIComponent(segment) : segment))
+			.join("/");
 	}
 
 	private async send(

@@ -6,9 +6,12 @@ import { ApiError } from "@/lib/api";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+/** One chat turn: the user's new message, in the conversation `threadId`
+ * (from that conversation's `thread` event), or a new one when absent. */
+export type ChatTurn = { message: string; threadId?: string };
 
 export type AgentEvent =
+	| { type: "thread"; id: string }
 	| { type: "delta"; text: string }
 	| { type: "tool"; name: string; args: Record<string, unknown> }
 	| { type: "done" }
@@ -34,14 +37,14 @@ export function parseEventStream(buffer: string): {
 }
 
 /**
- * Sends the conversation to an agent chat route and calls `onEvent` for each
- * event as it arrives. Resolves when the stream ends; rejects with `ApiError`
+ * Sends a chat turn to an agent chat route and calls `onEvent` for each
+ * event as it arrives; the first names the conversation's thread. Resolves when the stream ends; rejects with `ApiError`
  * when the route refuses the request (e.g. 403), or an `AbortError` when
  * `signal` aborts.
  */
 export async function streamAgentChat(
 	path: string,
-	messages: ChatMessage[],
+	turn: ChatTurn,
 	onEvent: (event: AgentEvent) => void,
 	signal?: AbortSignal,
 ): Promise<void> {
@@ -53,7 +56,7 @@ export async function streamAgentChat(
 			"Content-Type": "application/json",
 			Accept: "text/event-stream",
 		},
-		body: JSON.stringify({ messages }),
+		body: JSON.stringify(turn),
 		signal,
 	});
 	if (!response.ok || !response.body) {

@@ -25,17 +25,26 @@
       },
       "ChatRequest": {
         "properties": {
-          "messages": {
-            "items": {
-              "$ref": "#/components/schemas/ChatMessage"
-            },
-            "minItems": 1,
-            "title": "Messages",
-            "type": "array"
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thread Id"
           }
         },
         "required": [
-          "messages"
+          "message"
         ],
         "title": "ChatRequest",
         "type": "object"
@@ -144,6 +153,27 @@
         "title": "JobView",
         "type": "object"
       },
+      "ThreadView": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "messages"
+        ],
+        "title": "ThreadView",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -220,10 +250,25 @@
         ]
       }
     },
-    "/v1/assistant/chat": {
+    "/v1/agents/{agent}/chat": {
       "post": {
-        "description": "Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).",
-        "operationId": "chat_v1_assistant_chat_post",
+        "description": "Events: `thread` (`{id}`) first, `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool or asks another agent (`ask_<agent>`), then `done` or `error` (`{code, message}`).",
+        "operationId": "chat_v1_agents__agent__chat_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "enum": [
+                "assistant",
+                "docs"
+              ],
+              "title": "Agent",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -276,15 +321,30 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Chat with the assistant, streamed as server-sent events",
+        "summary": "Chat with an agent, streamed as server-sent events",
         "tags": [
-          "assistant"
+          "agents"
         ]
       }
     },
-    "/v1/assistant/jobs": {
+    "/v1/agents/{agent}/jobs": {
       "post": {
-        "operationId": "create_job_v1_assistant_jobs_post",
+        "operationId": "create_job_v1_agents__agent__jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "enum": [
+                "assistant",
+                "docs"
+              ],
+              "title": "Agent",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -322,15 +382,15 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Run the assistant in the background",
+        "summary": "Run an agent in the background",
         "tags": [
-          "assistant"
+          "agents"
         ]
       }
     },
-    "/v1/assistant/jobs/{job_id}": {
+    "/v1/agents/{agent}/jobs/{job_id}": {
       "get": {
-        "operationId": "get_job_v1_assistant_jobs__job_id__get",
+        "operationId": "get_job_v1_agents__agent__jobs__job_id__get",
         "parameters": [
           {
             "in": "path",
@@ -338,6 +398,19 @@
             "required": true,
             "schema": {
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "enum": [
+                "assistant",
+                "docs"
+              ],
+              "title": "Agent",
               "type": "string"
             }
           }
@@ -374,49 +447,51 @@
         ],
         "summary": "A background job's status and result",
         "tags": [
-          "assistant"
+          "agents"
         ]
       }
     },
-    "/v1/docs/chat": {
-      "post": {
-        "description": "Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) when the agent uses a tool, then `done` or `error` (`{code, message}`).",
-        "operationId": "chat_v1_docs_chat_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatRequest"
-              }
+    "/v1/agents/{agent}/threads/{thread_id}": {
+      "get": {
+        "operationId": "get_thread_v1_agents__agent__threads__thread_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Thread Id",
+              "type": "string"
             }
           },
-          "required": true
-        },
+          {
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "enum": [
+                "assistant",
+                "docs"
+              ],
+              "title": "Agent",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
-              "text/event-stream": {
-                "itemSchema": {
-                  "properties": {
-                    "data": {
-                      "type": "string"
-                    },
-                    "event": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "retry": {
-                      "minimum": 0,
-                      "type": "integer"
-                    }
-                  },
-                  "type": "object"
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadView"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such thread for this caller"
           },
           "422": {
             "content": {
@@ -434,9 +509,9 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Ask how Platform Base is built, answered from the project's docs (SSE)",
+        "summary": "A conversation's messages, to reopen it",
         "tags": [
-          "docs"
+          "agents"
         ]
       }
     }

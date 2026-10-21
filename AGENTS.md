@@ -8,7 +8,7 @@ Instructions for agents (and humans) working in this repository.
 - **`apps/api`**: NestJS (Express adapter), Drizzle ORM over `node-postgres`, ESM (`"type": "module"`, `.js` extensions on relative imports).
 - **`apps/web`**: Vite + React 19 + TanStack Router (file-based) + TanStack Query + Tailwind CSS v4.
 - **`packages/ui`**: shared shadcn/ui component library (`@workspace/ui`), consumed by `apps/web`.
-- **`apps/agents`**: Python 3.13 + FastAPI AI agents service on LangChain + LangGraph, provider-agnostic (the model is configuration), background jobs on Redis via arq. Internal: only `apps/api` calls it. Managed with **uv**; its `package.json` only wraps uv so Turborepo runs it.
+- **`apps/agents`**: Python 3.13 + FastAPI AI agents service on LangChain + LangGraph, provider-agnostic (the model is configuration): agents are declared once and can delegate to each other, chat threads persist in Postgres, background jobs run on Redis via arq, traces and evals go to LangSmith. Internal: only `apps/api` calls it. Managed with **uv**; its `package.json` only wraps uv so Turborepo runs it.
 - **Lint/format**: Biome (tabs, double quotes, auto-organized imports). Run `bun run format` before committing.
 - **Package manager**: Bun. Use `bun add`/`bun remove`, not `npm`/`pnpm`/`yarn`.
 
@@ -22,6 +22,8 @@ Instructions for agents (and humans) working in this repository.
 | Frontend RUM/traces | Grafana Faro | `VITE_FARO_COLLECTOR_URL` in `apps/web/.env` |
 | Frontend errors/replay | Sentry | `VITE_SENTRY_DSN` in `apps/web/.env` |
 | LLM | Any LangChain provider (OpenAI by default) | `LLM_MODEL` + the provider's key (`OPENAI_API_KEY`, ...) in `apps/agents/.env` |
+| Agent traces & evals | LangSmith | `LANGSMITH_*` in `apps/agents/.env` |
+| Agent chat threads | Neon (`langgraph` schema) | `AGENTS_DATABASE_URL` in `apps/agents/.env` |
 
 Every `.env.example` documents the vars for its app — copy to `.env` and fill in real values. Never commit `.env` files or paste real secrets into `.env.example`.
 
@@ -190,63 +192,103 @@ Color tokens live in `packages/ui/src/styles/globals.css` (`:root` / `.dark`), s
 
 ## Agents service (`apps/agents`)
 
-Python FastAPI service that runs the AI agents. Each agent is a package under `src/agents_service/agents/<name>/` holding everything that is only its own. Look at `agents/assistant/` as the reference agent (chat and background jobs), and `agents/docs/` (the admin console's docs assistant) for one with tools.
+Python FastAPI service that runs the AI agents. **An agent is one declaration**: the platform (`src/agents_service/platform/`) turns it into a LangGraph graph, its HTTP routes, its background jobs, the tools other agents use to reach it, and its LangGraph Studio entry. Look at `agents/assistant/` as the reference agent (chat and jobs), and `agents/docs/` (the admin console's docs assistant) for one with tools. Design: `docs/superpowers/specs/2026-10-21-agents-platform-design.md`.
 
 ### How it fits
 
 ```
-web ──► apps/api  /api/agents/*  ──► apps/agents  /v1/*   (internal, never exposed)
+web ──► apps/api  /api/agents/*  ──► apps/agents  /v1/agents/{agent}/*   (internal, never exposed)
           AuthGuard + permission or      Authorization: Bearer <60s EdDSA JWT>
           active-org check, signs JWT    verified with the public key → sub, org, scope
 ```
 
 - **`apps/api` is the only public entry point.** It authenticates the session, checks the user still belongs to the active organization (`AgentsService.callerFor`), then forwards the call with a JWT naming the caller: `sub` = user id, `org` = organization id (absent for platform-level agents), `scope` = the agent it is for, `iss` `platform-base-api`, `aud` `platform-base-agents`, valid for 60 seconds. `AgentsService` signs it with `AGENTS_JWT_PRIVATE_KEY` (Ed25519); `apps/agents` only has the public key (`AGENTS_JWT_PUBLIC_KEY`), so it can verify tokens but never mint one. The token is checked when a request starts; a chat stream may then outlive it.
-- **Scopes:** each router requires its agent's scope (`require_scope("docs")`, 403 otherwise), so a token minted for one agent can't reach another. `apps/api` decides who gets which scope: `assistant` goes to members of the active organization (`/api/agents/assistant/*`), `docs` to roles with the `docs-assistant:use` permission (admins, `/api/admin/docs-assistant/chat`). Agents that act inside an organization also call `as_member(caller)`, which rejects tokens without `org`.
-- **Network:** `apps/agents` takes no traffic from the internet, only from `apps/api` over the private network. It still needs outbound access to the LLM provider's API. The JWT is a second layer on top of that isolation, not a replacement for it.
+- **Access, per request:** the token's `scope` must be the agent in the path (403), a `member` agent needs `org` in the token (403), and the agent must offer the route's mode, chat or job (404). `apps/api` decides who gets which scope: `assistant` goes to members of the active organization (`/api/agents/assistant/*`), `docs` to roles with the `docs-assistant:use` permission (admins, `/api/admin/docs-assistant/*`).
+- **Network:** `apps/agents` takes no traffic from the internet, only from `apps/api` over the private network. It still needs outbound access to the LLM provider's API (and LangSmith when tracing). The JWT is a second layer on top of that isolation, not a replacement for it.
 - **Rotating the key pair:** generate a new pair (see `apps/api/.env.example`) and deploy both halves together. `apps/agents` accepts a single public key, so calls fail between the two deploys; accepting several keys (by `kid`) is the follow-up if rotation must be seamless.
-- **Interactive agents** stream over SSE (`fastapi.sse.EventSourceResponse`); `apps/api` pipes the stream through unchanged and aborts it when the browser disconnects.
-- **Background agents** run on an arq worker (`src/agents_service/worker.py`) over the same Redis Cloud database, on their own queue (`agents:queue`). Jobs record who queued them; a job is only visible to its organization.
+- **Chat** is one turn per request (`{message, thread_id?}`), streamed over SSE (`fastapi.sse.EventSourceResponse`). The first event, `thread`, names the conversation; `apps/api` pipes the stream through unchanged and aborts it when the browser disconnects.
+- **Threads** are kept server-side by a LangGraph checkpointer (Postgres, Neon) under a key derived from the token: `{org or "platform"}:{user}:{agent}:{thread_id}`. A thread is private to its user, organization and agent with nothing to look up; a guessed id only reaches an empty thread of the caller's own.
+- **Background jobs** run on an arq worker (`src/agents_service/worker.py`, one job function `run_agent` for every agent) over the same Redis Cloud database, on their own queue (`agents:queue`). Jobs record who queued them; a job is only visible to its organization, through its own agent.
 
 ### Layout
 
 ```
 apps/agents/
   src/agents_service/
-    main.py          # FastAPI app; lifespan creates the shared Redis pool
+    main.py          # FastAPI app; lifespan opens the Redis pool and checkpointer, builds the Platform
     config.py        # pydantic-settings, every env var
     llm.py           # the one place the chat model is created, from LLM_MODEL
-    auth.py          # verifies apps/api's JWT → the caller (user, organization, scopes)
-    dependencies.py  # shared settings, chat model and job queue
-    chat.py          # chat request/events every chat agent shares; streams any graph as SSE
-    jobs.py          # job queue (arq) with per-organization visibility
-    worker.py        # arq WorkerSettings, running every agent's JOBS
+    worker.py        # arq WorkerSettings; run_agent runs any agent as a job
+    checkpoints.py   # `bun run db:checkpoints`: creates the thread tables
+    studio.py        # every agent for LangGraph Studio (langgraph.json)
+    testing.py       # the test harness: ScriptedModel, AgentHarness (see Testing agents)
     health.py        # GET /health
+    platform/        # what agents are built on; agents import from `..platform` only
+      agent.py       #   Agent (the declaration), AgentContext (who a run is for), background()
+      registry.py    #   Registry: checks the agents as a whole (names, delegates, audiences, loops)
+      runtime.py     #   Platform: definition → graph; chat turns, thread history, one-off runs; run labels
+      delegation.py  #   ask_<agent> / start_<agent> tools
+      threads.py     #   thread keys, Postgres checkpointer
+      routes.py      #   the one router: /v1/agents/{agent}/chat|threads|jobs
+      chat.py, jobs.py, auth.py   # SSE events, arq queue, JWT → caller
     agents/
-      __init__.py    # the registry: ROUTERS (mounted by main.py) and JOBS (run by worker.py)
-      assistant/     # one package per agent:
-        agent.py     #   instructions, tools, `build(model)` → LangGraph graph (+ `run` for jobs)
-        router.py    #   its /v1/<name> routes, gated by its token scope
-        jobs.py      #   its arq job functions, if it runs in the background
-      docs/
-        agent.py
-        library.py   #   anything else only this agent uses (here: the docs and its tools)
-        router.py
-  tests/             # pytest, mirroring src (tests/agents/<name>/); real graphs on LangChain's
-                     # fake chat model, fake queue (see conftest.py)
+      __init__.py    # REGISTRY: every agent the service runs
+      assistant/agent.py
+      docs/agent.py, library.py   # anything only one agent uses lives in its package
+  tests/             # pytest: platform/, agents/<name>/, the registry contract, integration/
+  evals/             # real-model evals, recorded in LangSmith (`bun run eval`)
+  langgraph.json     # LangGraph Studio's graph list
   openapi.json       # committed schema apps/api generates its types from
 ```
 
 ### Adding an agent
 
-1. Create the package `agents/<name>/` and write `agent.py` with a `build(model)` that returns a LangGraph graph: `langchain.agents.create_agent` for a tool-calling agent (tools are `@tool` functions), or your own `StateGraph` for a multi-step workflow. Take the model as a parameter and never import a provider package (`langchain_openai`, ...) or SDK in an agent: get the model from `ChatModelDep` (HTTP) or `llm.chat_model(settings.llm_model)` (worker).
-2. Interactive: add `router.py` with `dependencies=[Depends(require_scope("<name>"))]` (from `auth.py`; `as_member` when it needs the organization) and stream with `chat.stream_graph(agent.build(model), body.messages)`. Background: add `jobs.py` with a `run_<name>` function and `JOBS = [run_<name>]`, and enqueue it through `JobQueueDep` by `run_<name>.__name__`. Dependencies only this agent uses (like the docs assistant's `get_docs_library`) live in its own package, not in the shared `dependencies.py`.
-3. Export `router` (and `JOBS`) from the package's `__init__.py` and register them in `agents/__init__.py`; that mounts the routes and gives the jobs to the worker. Put its tests in `tests/agents/<name>/`.
+1. Create `agents/<name>/agent.py` with one declaration:
+
+   ```python
+   agent = Agent(
+       name="scheduler",                  # token scope, route segment, tool suffix: ^[a-z][a-z0-9_]*$
+       description="Finds and books ...", # what it's for: other agents see this when delegating to it
+       instructions=INSTRUCTIONS,         # its system prompt (keep it byte-stable: a cacheable prefix)
+       tools=[find_slots],                # @tool functions, or a function (settings) -> tools
+       delegates=["calendar", background("reminders")],  # agents it may call (see below)
+       audience="member",                 # "member" needs an organization; "platform" doesn't
+       modes=frozenset({"chat", "job"}),  # default: chat only
+   )
+   ```
+
+   Tools learn who they run for from the tool runtime, never from globals: `def find_slots(day: str, runtime: ToolRuntime[AgentContext, Any])` → `runtime.context.organization_id`. A workflow beyond the tool-calling loop passes `graph=<factory>` instead of `instructions`: the factory gets a `BuildContext` (model, tools, settings, checkpointer) and returns its own `StateGraph`, compiled with `context_schema=AgentContext` and that checkpointer.
+2. Export `agent` from the package's `__init__.py`, add it to `REGISTRY` in `agents/__init__.py`, and add its entry to `langgraph.json` plus a factory in `studio.py` (a test checks they match the registry). That's all the service needs: routes, jobs and delegation tools come from the declaration.
+3. Write its behavior tests in `tests/agents/<name>/` with the harness, and evals in `evals/` for what only the real model can show. The registry contract tests cover it automatically.
 4. Regenerate the contract: `bun run openapi` (in `apps/agents`), then `bun run agents:types` (in `apps/api`). `tests/test_openapi.py` fails if the committed `openapi.json` is stale.
-5. Expose it from `apps/api/src/agents/` (controller route + `AgentsService` method signing a token with the new scope; `proxyEventStream` in `event-stream.ts` pipes SSE) and add the rows to `docs/routes.md`.
+5. Expose it from `apps/api/src/agents/`: a controller that decides who may reach it and calls the generic `AgentsService` methods (`chat`, `thread`, `createJob`, `getJob`) with the agent's name; `proxyEventStream` in `event-stream.ts` pipes SSE. Add the rows to `docs/routes.md`.
 
-**The docs assistant** reads Markdown from `DOCS_ROOT` (default: the repository root of this checkout): `AGENTS.md`, `README.md`, `docs/**/*.md` and `apps/*/README.md`, nothing else (`DocsLibrary` allowlist, so it can't read `.env` or code). Its answers are only as current as those docs; a deployment must ship them next to the service and set `DOCS_ROOT`.
+Never import a provider package (`langchain_openai`, ...) or SDK in an agent: the platform gives every agent the model from `LLM_MODEL`.
 
-**Switching the LLM** is configuration only: set `LLM_MODEL` to another LangChain `"<provider>:<model>"` id (e.g. `anthropic:claude-opus-5-5`), add that provider's integration (`uv add langchain-anthropic`) and its API key. Only `langchain-openai` is installed by default. Provider-specific options (reasoning effort, etc.) go in `llm.chat_model`, not in agents. Errors differ per provider, so agents treat any model failure the same way (logged, reported as `model_error`).
+### Agents calling agents
+
+An agent lists the agents it may call in `delegates`, and its model gets a tool per delegate:
+
+- `"calendar"` → `ask_calendar(request)`: runs that agent now, in-process, and returns its final answer as the tool result. The delegate starts a fresh, unsaved run (it can't see the conversation, so the request must carry what it needs) and runs **as the same user and organization**.
+- `background("reminders")` → `start_reminders(request)`: queues it as a job for the same caller and returns the job id. The target must offer `"job"`.
+
+The registry rejects, at import time: unknown delegates, delegating to itself, delegation loops, background targets without jobs, and **mixing audiences** (a member agent can't reach a platform agent). Declaring a delegate extends access: whoever may use the parent can, through it, use the delegate, so only delegate to agents whose data the parent's users may see. Delegation depth is capped at 3. A delegate that fails becomes the tool result `The <name> agent failed.` (details in the logs) and the parent decides what to do; the user only sees the parent's text, with each delegation shown as a `tool` event.
+
+### Testing agents
+
+Quality is checked in four layers; the first three run in `bun run test` with no network.
+
+- **Platform tests** (`tests/platform/`): the definition, registry rules, delegation, threads, routes and jobs, on test-only agents (`tests/platform/agents.py`).
+- **Registry contract** (`tests/test_registry_contract.py`): parametrized over `REGISTRY`, so every agent is checked for free: it binds exactly its tools and delegations, serves its modes over HTTP only for its own token, keeps its threads, and runs as a job when it says so.
+- **Behavior tests** (`tests/agents/<name>/`), with `agents_service.testing`: `AgentHarness(REGISTRY, models={"assistant": ScriptedModel(call("find_slots", day="mon"), reply("Monday at 9."))})` runs the real agent (graph, tools, delegation, threads) on a scripted model. `await harness.chat(...)` returns a `Transcript` (`text`, `tool_calls`, `thread_id`, `events`), `harness.run(...)` runs it as a job, and `ScriptedModel.requests` shows what the agent sent the model (system prompt, messages, bound tools). Script exceptions to simulate provider failures. A model called more often than scripted fails the test.
+- **Evals** (`evals/`, `bun run eval`): the real model, graded by code (tools used, files cited) or by an LLM judge (`evals/judge.py`), recorded with LangSmith's pytest integration (`@pytest.mark.langsmith`). With `LANGSMITH_API_KEY` set each run is an experiment in the `platform-base-agents` suite, so prompt or model changes can be compared run over run. They cost tokens and aren't part of `bun run test`; run them when changing an agent's prompt, tools or model.
+- **Integration** (`tests/integration/`, marker `integration`): the Postgres checkpointer against a real database when `AGENTS_TEST_DATABASE_URL` is set (a Neon branch's direct URL; the test works in a throwaway schema); skipped otherwise.
+
+### LangSmith and Studio
+
+- **Tracing** is configuration only: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT` (see `.env.example`). Every run is named after its agent, tagged `agent:<name>` and `entrypoint:chat|job|delegation`, with `agent`, `user_id`, `organization_id`, `delegation_depth` and `thread_id` as metadata; delegations nest under the parent's tool call. Traces carry message content: set `LANGSMITH_HIDE_INPUTS`/`LANGSMITH_HIDE_OUTPUTS` wherever it may hold sensitive or personal data. Never add tracing calls in application code.
+- **Studio:** `bun run studio` (`langgraph dev`) serves every agent from `langgraph.json` to LangGraph Studio for step-by-step debugging. Set the run's context (`user_id`, `organization_id`, `agent`) in Studio the way `apps/api`'s token would.
+- OpenTelemetry → Grafana Cloud stays as it is for HTTP, Redis and service traces (`opentelemetry-instrument` in the `dev`/`start*` scripts, service names `agents` and `agents-worker`); LangSmith is for what happens inside agents.
 
 ### Commands (from `apps/agents`)
 
@@ -256,15 +298,22 @@ bun run dev           # FastAPI (:8000) + arq worker, both reloading
 bun run lint          # ruff check + format check
 bun run format        # ruff format + fixes
 bun run typecheck     # pyright (strict on src/)
-bun run test          # pytest
+bun run test          # pytest (platform, contract, agents; integration when configured)
+bun run eval          # real-model evals → LangSmith
+bun run studio        # LangGraph Studio
 bun run openapi       # rewrite openapi.json
+bun run db:checkpoints  # create/migrate the thread tables in AGENTS_DATABASE_URL
 ```
 
-Use `uv add <pkg>` / `uv add --dev <pkg>` for dependencies, never `pip`. Tracing is `opentelemetry-instrument` in the `dev`/`start*` scripts with the same `OTEL_*` Grafana Cloud settings as `apps/api` (service names `agents` and `agents-worker`). Model calls themselves aren't traced yet (LangSmith or an OpenTelemetry LangChain instrumentation can add that). Don't add manual tracing in application code.
+Use `uv add <pkg>` / `uv add --dev <pkg>` for dependencies, never `pip`.
 
-**Deploying:** `apps/agents/Dockerfile` builds one image for both processes, from the repository root with the repository layout under `/srv/platform-base`, so the docs assistant finds its Markdown at the default `DOCS_ROOT`. On Railway it runs as two services: `agents` (the default command, private networking only, no public domain; `apps/api` reaches it at `AGENTS_URL=http://${{agents.RAILWAY_PRIVATE_DOMAIN}}:${{agents.PORT}}`) and `agents-worker` (start command `opentelemetry-instrument arq agents_service.worker.WorkerSettings`).
+**Switching the LLM** is configuration only: set `LLM_MODEL` to another LangChain `"<provider>:<model>"` id (e.g. `anthropic:claude-opus-5-5`), add that provider's integration (`uv add langchain-anthropic`) and its API key. Only `langchain-openai` is installed by default. Provider-specific options (reasoning effort, etc.) go in `llm.chat_model`, not in agents. Errors differ per provider, so agents treat any model failure the same way (logged, reported as `model_error`).
 
-The agents service has no database access yet. When an agent needs tables, define them in `apps/api/src/database/schema.ts` and migrate with Drizzle as usual: Drizzle stays the single owner of migrations, Python only reads and writes.
+**The docs assistant** reads Markdown from `DOCS_ROOT` (default: the repository root of this checkout): `AGENTS.md`, `README.md`, `docs/**/*.md` and `apps/*/README.md`, nothing else (`DocsLibrary` allowlist, so it can't read `.env` or code). Its answers are only as current as those docs; a deployment must ship them next to the service and set `DOCS_ROOT`.
+
+**Data:** chat threads live in Neon, in the `langgraph` schema, through `AGENTS_DATABASE_URL` (the **direct**, unpooled connection string). Their tables belong to LangGraph's checkpointer and are created by `bun run db:checkpoints` (idempotent, run on deploy): the one exception to Drizzle owning migrations, and Drizzle never touches that schema. Without `AGENTS_DATABASE_URL` threads are kept in memory (dev only; the service logs a warning). Product tables an agent needs are still defined in `apps/api/src/database/schema.ts` and migrated with Drizzle; Python only reads and writes them.
+
+**Deploying:** `apps/agents/Dockerfile` builds one image for both processes, from the repository root with the repository layout under `/srv/platform-base`, so the docs assistant finds its Markdown at the default `DOCS_ROOT`. On Railway it runs as two services: `agents` (the default command, private networking only, no public domain; `apps/api` reaches it at `AGENTS_URL=http://${{agents.RAILWAY_PRIVATE_DOMAIN}}:${{agents.PORT}}`) and `agents-worker` (start command `opentelemetry-instrument arq agents_service.worker.WorkerSettings`). Both need `AGENTS_DATABASE_URL` (and the `LANGSMITH_*` vars to trace); run `python -m agents_service.checkpoints` once per environment before the first deploy that uses threads.
 
 ## Routes map
 

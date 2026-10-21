@@ -14,6 +14,7 @@ describe("AgentsController", () => {
 		callerFor: vi.fn(),
 		createJob: vi.fn(),
 		getJob: vi.fn(),
+		thread: vi.fn(),
 	};
 
 	beforeEach(async () => {
@@ -45,15 +46,25 @@ describe("AgentsController", () => {
 			controller.createJob(session, { prompt: "Resuma" }),
 		).resolves.toEqual({ id: "job-1" });
 		expect(agents.callerFor).toHaveBeenCalledWith(session);
-		expect(agents.createJob).toHaveBeenCalledWith(caller, { prompt: "Resuma" });
+		expect(agents.createJob).toHaveBeenCalledWith("assistant", caller, {
+			prompt: "Resuma",
+		});
 	});
 
 	it("looks a job up within the session's organization", async () => {
-		const job = { id: "job-1", agent: "run_assistant", status: "queued" };
+		const job = { id: "job-1", agent: "assistant", status: "queued" };
 		agents.getJob.mockResolvedValue(job);
 
 		await expect(controller.getJob(session, "job-1")).resolves.toEqual(job);
-		expect(agents.getJob).toHaveBeenCalledWith(caller, "job-1");
+		expect(agents.getJob).toHaveBeenCalledWith("assistant", caller, "job-1");
+	});
+
+	it("reads the caller's own conversation with the assistant", async () => {
+		const thread = { id: "t1", messages: [] };
+		agents.thread.mockResolvedValue(thread);
+
+		await expect(controller.thread(session, "t1")).resolves.toBe(thread);
+		expect(agents.thread).toHaveBeenCalledWith("assistant", caller, "t1");
 	});
 
 	it("doesn't reach the agents service when the caller check fails", async () => {

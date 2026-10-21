@@ -1,4 +1,3 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 """Docs assistant: explains how Platform Base is built, from the repository's docs.
 
 For superadmins in the admin console. It has no knowledge of its own about
@@ -6,10 +5,10 @@ the app: it lists, searches and reads the Markdown docs through its tools
 and answers from them, citing the files it used.
 """
 
-from langchain.agents import create_agent
-from langchain_core.language_models import BaseChatModel
+from typing import Any
 
-from ...chat import Graph
+from ...config import Settings
+from ...platform import Agent
 from .library import DocsLibrary
 
 # Kept byte-for-byte stable so it stays a cacheable prompt prefix.
@@ -39,7 +38,18 @@ comes closest. Never fill gaps with guesses about the code.
 """
 
 
-def build(model: BaseChatModel, library: DocsLibrary) -> Graph:
-    return create_agent(
-        model, library.tools(), system_prompt=INSTRUCTIONS, name="docs_assistant"
-    )
+def tools(settings: Settings) -> list[Any]:
+    return DocsLibrary(settings.docs_root).tools()
+
+
+agent = Agent(
+    name="docs",
+    description=(
+        "Explains how Platform Base is built (architecture, routes, data, "
+        "infrastructure, conventions) from the project's documentation."
+    ),
+    instructions=INSTRUCTIONS,
+    tools=tools,
+    # apps/api only issues this scope to superadmins; no organization.
+    audience="platform",
+)

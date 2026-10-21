@@ -38,6 +38,8 @@ dist-ssr
 # python (apps/agents)
 .venv
 __pycache__
+# LangGraph Studio's local server state (`bun run studio`)
+.langgraph_api
 *.py[cod]
 .pytest_cache
 .ruff_cache

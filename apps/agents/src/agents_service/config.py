@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     # How long a finished job's result stays readable, in seconds.
     agents_job_result_ttl: int = 86_400
 
+    # Neon *direct* (unpooled) connection string for chat threads, kept in
+    # the `langgraph` schema (see platform/threads.py). Unset: threads live
+    # in memory, which is only fine for local dev.
+    agents_database_url: str | None = None
+
     # LangChain "<provider>:<model>" id, see llm.py. Provider API keys
     # (OPENAI_API_KEY, ANTHROPIC_API_KEY, ...) are read by the integrations.
     llm_model: str = "openai:gpt-5.5"

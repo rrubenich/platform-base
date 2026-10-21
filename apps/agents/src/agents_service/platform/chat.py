@@ -1,8 +1,8 @@
 # LangGraph's graph generics are partly untyped; relax only the rules that flag
 # them, here and in the agents' modules where graphs are built and run.
 # pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-"""What every chat agent shares: the conversation it receives and the events
-it streams back. Agents only provide a LangGraph graph.
+"""What every chat agent shares: the message it receives and the events it
+streams back. Agents only provide a LangGraph graph.
 """
 
 import logging
@@ -10,13 +10,19 @@ from collections.abc import AsyncIterator
 from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 # Agents only need the graph's stream/invoke interface, typed loosely once.
 Graph = CompiledStateGraph[Any, Any, Any, Any]
+
+
+# A client-chosen thread id is only ever a suffix of the server-derived key
+# (see threads.py), so it can't contain the key's separator.
+THREAD_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
 
 
 class ChatMessage(BaseModel):
@@ -25,13 +31,16 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage] = Field(min_length=1)
+    message: str = Field(min_length=1)
+    # Continues that conversation; omitted to start a new one.
+    thread_id: str | None = Field(default=None, pattern=THREAD_ID_PATTERN)
 
-    @model_validator(mode="after")
-    def ends_with_user(self) -> "ChatRequest":
-        if self.messages[-1].role != "user":
-            raise ValueError("the last message must be from the user")
-        return self
+
+class Thread(BaseModel):
+    """Always the first event: the conversation's id, new or continued."""
+
+    type: Literal["thread"] = "thread"
+    id: str
 
 
 class Delta(BaseModel):
@@ -57,20 +66,17 @@ class Error(BaseModel):
     message: str
 
 
-StreamEvent = Delta | ToolUse | Done | Error
+StreamEvent = Thread | Delta | ToolUse | Done | Error
 
 CHAT_EVENTS_DESCRIPTION = (
-    "Events: `delta` (`{text}`) as the reply is written, `tool` (`{name, args}`) "
-    "when the agent uses a tool, then `done` or `error` (`{code, message}`)."
+    "Events: `thread` (`{id}`) first, `delta` (`{text}`) as the reply is "
+    "written, `tool` (`{name, args}`) when the agent uses a tool or asks "
+    "another agent (`ask_<agent>`), then `done` or `error` (`{code, message}`)."
 )
 
 
-def to_input(messages: list[ChatMessage]) -> dict[str, Any]:
-    return {"messages": [{"role": m.role, "content": m.content} for m in messages]}
-
-
 async def stream_graph(
-    graph: Graph, messages: list[ChatMessage]
+    graph: Graph, message: str, config: RunnableConfig, context: Any
 ) -> AsyncIterator[StreamEvent]:
     """Yields the reply's text as it's written and each tool call the agent
     makes, then `Done`, or an `Error` at any point.
@@ -80,7 +86,10 @@ async def stream_graph(
     """
     try:
         async for mode, data in graph.astream(
-            to_input(messages), stream_mode=["messages", "updates"]
+            {"messages": [{"role": "user", "content": message}]},
+            config,
+            context=context,
+            stream_mode=["messages", "updates"],
         ):
             if mode == "messages":
                 chunk, _metadata = data
@@ -93,9 +102,9 @@ async def stream_graph(
                 # calls it decided on, with complete arguments.
                 updates = cast(dict[str, Any], data)
                 for update in updates.values():
-                    for message in (update or {}).get("messages", []):
-                        if isinstance(message, AIMessage):
-                            for call in message.tool_calls:
+                    for item in (update or {}).get("messages", []):
+                        if isinstance(item, AIMessage):
+                            for call in item.tool_calls:
                                 yield ToolUse(name=call["name"], args=call["args"])
     except Exception:
         # Provider errors (auth, rate limits, outages) have provider-specific

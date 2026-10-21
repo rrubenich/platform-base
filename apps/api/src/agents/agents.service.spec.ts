@@ -97,11 +97,11 @@ describe("AgentsService", () => {
 		);
 
 		await expect(
-			service.createJob(CALLER, { prompt: "Resuma" }),
+			service.createJob("assistant", CALLER, { prompt: "Resuma" }),
 		).resolves.toEqual({ id: "job-1" });
 
 		const [url, init] = fetchMock.mock.calls[0];
-		expect(url).toBe("http://agents.internal/v1/assistant/jobs");
+		expect(url).toBe("http://agents.internal/v1/agents/assistant/jobs");
 		expect(init?.body).toBe(JSON.stringify({ prompt: "Resuma" }));
 
 		const headers = (init?.headers ?? {}) as Record<string, string>;
@@ -124,14 +124,15 @@ describe("AgentsService", () => {
 	it("scopes the docs assistant's token to it, without an organization", async () => {
 		fetchMock.mockResolvedValue(new Response("event: done\n\n"));
 
-		await service.docsChat(
-			"admin-1",
-			{ messages: [{ role: "user", content: "Como funciona o JWT?" }] },
+		await service.chat(
+			"docs",
+			{ userId: "admin-1" },
+			{ message: "Como funciona o JWT?", thread_id: null },
 			new AbortController().signal,
 		);
 
 		const [url, init] = fetchMock.mock.calls[0];
-		expect(url).toBe("http://agents.internal/v1/docs/chat");
+		expect(url).toBe("http://agents.internal/v1/agents/docs/chat");
 		const headers = (init?.headers ?? {}) as Record<string, string>;
 		const { payload } = await jwtVerify(
 			headers.Authorization.slice("Bearer ".length),
@@ -141,6 +142,18 @@ describe("AgentsService", () => {
 		expect(payload.sub).toBe("admin-1");
 		expect(payload.scope).toBe("docs");
 		expect(payload).not.toHaveProperty("org");
+	});
+
+	it("reads a thread, escaping its id in the path", async () => {
+		const thread = { id: "a b", messages: [] };
+		fetchMock.mockResolvedValue(Response.json(thread));
+
+		await expect(service.thread("assistant", CALLER, "a b")).resolves.toEqual(
+			thread,
+		);
+		expect(fetchMock.mock.calls[0][0]).toBe(
+			"http://agents.internal/v1/agents/assistant/threads/a%20b",
+		);
 	});
 
 	it("calls the health check without a token", async () => {
@@ -155,7 +168,7 @@ describe("AgentsService", () => {
 	it("maps a missing job to 404", async () => {
 		fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
 
-		await expect(service.getJob(CALLER, "job-1")).rejects.toThrow(
+		await expect(service.getJob("assistant", CALLER, "job-1")).rejects.toThrow(
 			NotFoundException,
 		);
 	});
@@ -163,7 +176,7 @@ describe("AgentsService", () => {
 	it("maps other upstream failures to 502", async () => {
 		fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
 
-		await expect(service.getJob(CALLER, "job-1")).rejects.toThrow(
+		await expect(service.getJob("assistant", CALLER, "job-1")).rejects.toThrow(
 			BadGatewayException,
 		);
 	});
