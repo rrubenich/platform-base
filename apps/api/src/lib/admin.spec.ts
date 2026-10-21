@@ -35,6 +35,9 @@ const db = {
 
 const testAuth = betterAuth({
 	...authOptions,
+	// Open sign-up: these tests are about the admin plugin, not who may sign up
+	// (sign-up-gate.spec.ts covers that).
+	databaseHooks: {},
 	database: memoryAdapter(db),
 	secret: "test-secret-that-is-long-enough-for-better-auth",
 });

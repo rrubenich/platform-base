@@ -9,6 +9,7 @@ import {
 	type OrganizationDetail,
 } from "@/lib/admin-api";
 import { adminErrorMessage } from "@/lib/admin-errors";
+import { useAdminUserActions } from "@/lib/use-admin-user-actions";
 
 /** Resolves to an error message for the form, or null on success. */
 type FormResult = Promise<string | null>;
@@ -27,6 +28,12 @@ type AdminOrganizationContextValue = {
 	renameTeam: (teamId: string, name: string) => FormResult;
 	deleteTeam: (teamId: string) => void;
 	setTeamMembership: (teamId: string, userId: string, inTeam: boolean) => void;
+	/** Emails the owner a new setup link. */
+	resendOwnerSetup: () => void;
+	/** Deletes the pending owner's account and this organization. */
+	cancelOwnerSetup: () => void;
+	/** Signs in as a member, to work inside the organization as them. */
+	impersonate: (userId: string) => void;
 };
 
 const AdminOrganizationContext = createContext<
@@ -86,6 +93,9 @@ export function AdminOrganizationProvider({
 		void submit(request, success).then((error) => {
 			if (error) toast.error(error);
 		});
+
+	const userActions = useAdminUserActions();
+	const ownerSetupId = organization.data?.ownerSetup?.id;
 
 	const value: AdminOrganizationContextValue = {
 		organization: organization.data,
@@ -149,6 +159,31 @@ export function AdminOrganizationProvider({
 						: adminApi.removeTeamMember(organizationId, teamId, userId),
 				m.admin_toast_team_updated(),
 			),
+		resendOwnerSetup: () => {
+			if (!ownerSetupId) return;
+			void adminApi.resendAccountInvitation(ownerSetupId).then(
+				async () => {
+					toast.success(m.admin_toast_owner_setup_resent());
+					await queryClient.invalidateQueries({ queryKey: ["admin"] });
+				},
+				(error: unknown) =>
+					toast.error(adminErrorMessage(error, m.admin_action_error())),
+			);
+		},
+		cancelOwnerSetup: () => {
+			if (!ownerSetupId) return;
+			void adminApi.cancelAccountInvitation(ownerSetupId).then(
+				async () => {
+					toast.success(m.admin_toast_owner_setup_cancelled());
+					queryClient.removeQueries({ queryKey });
+					await queryClient.invalidateQueries({ queryKey: ["admin"] });
+					await navigate({ to: "/admin/organizations" });
+				},
+				(error: unknown) =>
+					toast.error(adminErrorMessage(error, m.admin_action_error())),
+			);
+		},
+		impersonate: (userId) => void userActions.impersonate(userId),
 	};
 
 	return (

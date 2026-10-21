@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { adminApi } from "@/lib/admin-api";
 import { authClient } from "@/lib/auth-client";
 import { AdminUsersContainer } from "./admin-users.container";
 import type { UsersSearch } from "./admin-users.search";
@@ -30,6 +31,10 @@ vi.mock("@/lib/auth-client", () => ({
 			removeUser: vi.fn(),
 		},
 	},
+}));
+
+vi.mock("@/lib/admin-api", () => ({
+	adminApi: { accountInvitationsFor: vi.fn() },
 }));
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -90,6 +95,31 @@ describe("AdminUsersContainer", () => {
 				.mockResolvedValue({ data: {}, error: null } as never);
 		}
 		withUsers([ADMIN, JANE], 42);
+		vi.mocked(adminApi.accountInvitationsFor).mockReset().mockResolvedValue([]);
+	});
+
+	it("marks accounts whose owner hasn't set up their login yet", async () => {
+		vi.mocked(adminApi.accountInvitationsFor).mockResolvedValue([
+			{
+				id: "setup-1",
+				userId: "user-2",
+				email: "jane@example.com",
+				expiresAt: "2026-10-28T00:00:00.000Z",
+				status: "pending",
+			},
+		]);
+
+		renderUsers();
+
+		const janeRow = (await screen.findByText("Pending setup")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(janeRow).getByText("Jane Doe")).toBeInTheDocument();
+		expect(within(janeRow).queryByText("Unverified")).toBeNull();
+		expect(adminApi.accountInvitationsFor).toHaveBeenCalledWith([
+			"admin-1",
+			"user-2",
+		]);
 	});
 
 	it("lists the newest users first, a page at a time, with their status", async () => {

@@ -6,6 +6,7 @@ import { Input } from "@workspace/ui/components/input";
 import { type FormEvent, useEffect, useState } from "react";
 import { useAdminOrganizationsContext } from "./admin-organizations.context";
 import { CreateOrganizationDialog } from "./components/create-organization-dialog";
+import { InviteClientDialog } from "./components/invite-client-dialog";
 import { OrganizationsTable } from "./components/organizations-table";
 
 export function AdminOrganizationsPage() {
@@ -28,7 +29,10 @@ export function AdminOrganizationsPage() {
 						{m.admin_orgs_description()}
 					</p>
 				</div>
-				<CreateOrganizationDialog />
+				<div className="flex gap-2">
+					<CreateOrganizationDialog />
+					<InviteClientDialog />
+				</div>
 			</div>
 			<search className="relative sm:w-80">
 				<form onSubmit={submit}>

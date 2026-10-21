@@ -42,7 +42,6 @@ async function fillForm({
 	confirmPassword?: string;
 } = {}) {
 	await userEvent.type(screen.getByLabelText("Name"), "Jane Doe");
-	await userEvent.type(screen.getByLabelText("Email"), "jane@example.com");
 	await userEvent.type(screen.getByLabelText("Password"), password);
 	await userEvent.type(
 		screen.getByLabelText("Confirm password"),
@@ -53,7 +52,8 @@ async function fillForm({
 
 describe("SignUpContainer", () => {
 	beforeEach(() => {
-		search = {};
+		// Sign-up is only for organization invitees, who arrive with their email.
+		search = { email: "jane@example.com" };
 		vi.mocked(authClient.signUp.email).mockReset();
 		vi.mocked(authClient.signIn.social).mockReset();
 	});
@@ -117,7 +117,25 @@ describe("SignUpContainer", () => {
 		});
 	});
 
+	it("says sign-up is invite-only without an invitation", () => {
+		search = {};
+
+		render(<SignUpContainer />);
+
+		expect(
+			screen.getByText(
+				"Platform Base is invite-only. If you were invited, use the link in your email.",
+			),
+		).toBeInTheDocument();
+		expect(screen.queryByLabelText("Password")).toBeNull();
+		expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+			"href",
+			"/sign-in",
+		);
+	});
+
 	it("links to the sign-in page", () => {
+		search = {};
 		render(<SignUpContainer />);
 
 		expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
@@ -220,7 +238,7 @@ describe("SignUpContainer", () => {
 		});
 
 		it("uses the redirect for social sign-up", async () => {
-			search = { redirect: "/invitations/i1" };
+			search = { redirect: "/invitations/i1", email: "jane@example.com" };
 			vi.mocked(authClient.signIn.social).mockResolvedValue({
 				data: {},
 				error: null,

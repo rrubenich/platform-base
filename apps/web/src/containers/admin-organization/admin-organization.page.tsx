@@ -12,6 +12,7 @@ import { useAdminOrganizationContext } from "./admin-organization.context";
 import { InvitationsCard } from "./components/invitations-card";
 import { MembersCard } from "./components/members-card";
 import { OrganizationHeaderCard } from "./components/organization-header-card";
+import { OwnerSetupCard } from "./components/owner-setup-card";
 import { TeamsCard } from "./components/teams-card";
 
 export function AdminOrganizationPage() {
@@ -41,6 +42,9 @@ export function AdminOrganizationPage() {
 				key={`${organization.name}-${organization.slug}`}
 				organization={organization}
 			/>
+			{organization.ownerSetup && (
+				<OwnerSetupCard ownerSetup={organization.ownerSetup} />
+			)}
 			<Tabs defaultValue="members">
 				<TabsList>
 					<TabsTrigger value="members">

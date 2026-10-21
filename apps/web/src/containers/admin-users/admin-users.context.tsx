@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { createContext, type ReactNode, useContext } from "react";
 import type { ManagedUser } from "@/components/admin/user-actions-menu";
+import { adminApi } from "@/lib/admin-api";
 import { authClient } from "@/lib/auth-client";
 import {
 	type AdminUserActions,
@@ -25,6 +26,8 @@ type AdminUsersContextValue = {
 	isLoading: boolean;
 	isError: boolean;
 	currentUserId: string | undefined;
+	/** Users on this page who haven't set up the account made for them. */
+	pendingSetupUserIds: ReadonlySet<string>;
 	actions: AdminUserActions;
 	setQuery: (q: string) => void;
 	setFilter: (filter: UserFilter | undefined) => void;
@@ -84,6 +87,13 @@ export function AdminUsersProvider({ children }: { children: ReactNode }) {
 		placeholderData: keepPreviousData,
 	});
 
+	const userIds = (data?.users ?? []).map((user) => user.id);
+	const { data: pendingSetups } = useQuery({
+		queryKey: ["admin", "account-invitations", userIds],
+		queryFn: () => adminApi.accountInvitationsFor(userIds),
+		enabled: userIds.length > 0,
+	});
+
 	// A new query or filter starts back at page one.
 	const update = (next: UsersSearch) =>
 		navigate({ search: (previous) => ({ ...previous, ...next }) });
@@ -96,6 +106,9 @@ export function AdminUsersProvider({ children }: { children: ReactNode }) {
 		isLoading,
 		isError,
 		currentUserId: session?.user.id,
+		pendingSetupUserIds: new Set(
+			pendingSetups?.map(({ userId }) => userId) ?? [],
+		),
 		actions,
 		setQuery: (q) => update({ q: q.trim() || undefined, page: undefined }),
 		setFilter: (filter) => update({ filter, page: undefined }),

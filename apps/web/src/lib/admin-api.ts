@@ -49,6 +49,14 @@ export type OrganizationTeam = {
 	userIds: string[];
 };
 
+/** The owner's account invitation while they haven't set up their login. */
+export type OwnerSetup = {
+	id: string;
+	email: string;
+	expiresAt: string;
+	status: "pending" | "expired";
+};
+
 export type OrganizationDetail = Omit<
 	OrganizationSummary,
 	"memberCount" | "teamCount"
@@ -62,6 +70,7 @@ export type OrganizationDetail = Omit<
 		teamId: string | null;
 		expiresAt: string;
 	}[];
+	ownerSetup: OwnerSetup | null;
 };
 
 const orgPath = (id: string) =>
@@ -99,6 +108,33 @@ export const adminApi = {
 			method: "POST",
 			body,
 		}),
+
+	/** Creates the account (owner of a new organization) and emails its link. */
+	inviteClient: (body: {
+		email: string;
+		organizationName: string;
+		slug: string;
+	}) =>
+		apiJson<{ id: string; organizationId: string; userId: string }>(
+			"/admin/account-invitations",
+			{ method: "POST", body },
+		),
+
+	resendAccountInvitation: (id: string) =>
+		apiJson<OwnerSetup>(
+			`/admin/account-invitations/${encodeURIComponent(id)}/resend`,
+			{ method: "POST" },
+		),
+
+	cancelAccountInvitation: (id: string) =>
+		apiJson<void>(`/admin/account-invitations/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
+
+	accountInvitationsFor: (userIds: string[]) =>
+		apiJson<(OwnerSetup & { userId: string })[]>(
+			`/admin/account-invitations?${new URLSearchParams({ userIds: userIds.join(",") })}`,
+		),
 
 	updateOrganization: (id: string, body: { name?: string; slug?: string }) =>
 		apiJson<OrganizationDetail>(orgPath(id), { method: "PATCH", body }),

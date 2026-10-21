@@ -25,8 +25,16 @@ import { formatDate } from "@/lib/format";
 import { USERS_PAGE_SIZE, useAdminUsersContext } from "../admin-users.context";
 
 export function UsersTable() {
-	const { users, total, page, isLoading, currentUserId, actions, setPage } =
-		useAdminUsersContext();
+	const {
+		users,
+		total,
+		page,
+		isLoading,
+		currentUserId,
+		pendingSetupUserIds,
+		actions,
+		setPage,
+	} = useAdminUsersContext();
 
 	if (!isLoading && users?.length === 0) {
 		return (
@@ -82,7 +90,10 @@ export function UsersTable() {
 											</Link>
 										</TableCell>
 										<TableCell>
-											<UserBadges user={user} />
+											<UserBadges
+												user={user}
+												pendingSetup={pendingSetupUserIds.has(user.id)}
+											/>
 										</TableCell>
 										<TableCell className="hidden text-muted-foreground md:table-cell">
 											{formatDate(user.createdAt)}

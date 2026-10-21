@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { AccountInvitationsModule } from "./account-invitations/account-invitations.module.js";
 import { AdminModule } from "./admin/admin.module.js";
 import { AgentsModule } from "./agents/agents.module.js";
 import { AppController } from "./app.controller.js";
@@ -15,6 +16,7 @@ import { HealthModule } from "./health/health.module.js";
 		DatabaseModule,
 		HealthModule,
 		AdminModule,
+		AccountInvitationsModule,
 		AgentsModule,
 	],
 	controllers: [AppController],

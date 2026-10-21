@@ -15,11 +15,14 @@ export async function apiGet(path: string): Promise<string> {
 /** A failed API call, carrying the response status and Nest's message. */
 export class ApiError extends Error {
 	readonly status: number;
+	/** A machine-readable reason, when the API gives one (e.g. EMAIL_TAKEN). */
+	readonly code: string | undefined;
 
-	constructor(status: number, message: string) {
+	constructor(status: number, message: string, code?: string) {
 		super(message);
 		this.name = "ApiError";
 		this.status = status;
+		this.code = code;
 	}
 }
 
@@ -48,6 +51,7 @@ export async function apiJson<T>(
 		// list every failed constraint.
 		const data = (await response.json().catch(() => null)) as {
 			message?: string | string[];
+			code?: string;
 		} | null;
 		const message = Array.isArray(data?.message)
 			? data.message.join(", ")
@@ -55,6 +59,7 @@ export async function apiJson<T>(
 		throw new ApiError(
 			response.status,
 			message || `API request failed: ${response.status}`,
+			data?.code,
 		);
 	}
 

@@ -13,12 +13,15 @@ export const hasRole = (role: string | null | undefined, name: string) =>
 /** Platform role(s) and account state, as badges. */
 export function UserBadges({
 	user,
+	pendingSetup = false,
 }: {
 	user: {
 		role?: string | null;
 		banned?: boolean | null;
 		emailVerified?: boolean;
 	};
+	/** Their account was made for them and they haven't set up their login. */
+	pendingSetup?: boolean;
 }) {
 	return (
 		<div className="flex flex-wrap gap-1">
@@ -30,8 +33,12 @@ export function UserBadges({
 			{user.banned && (
 				<Badge variant="destructive">{m.admin_status_banned()}</Badge>
 			)}
-			{user.emailVerified === false && (
-				<Badge variant="outline">{m.admin_status_unverified()}</Badge>
+			{pendingSetup ? (
+				<Badge variant="outline">{m.admin_user_pending_setup()}</Badge>
+			) : (
+				user.emailVerified === false && (
+					<Badge variant="outline">{m.admin_status_unverified()}</Badge>
+				)
 			)}
 		</div>
 	);

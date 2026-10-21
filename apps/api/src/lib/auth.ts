@@ -18,7 +18,6 @@ import {
 } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { Resend } from "resend";
 import * as schema from "../database/schema.js";
 import {
 	authErrorTranslations,
@@ -27,7 +26,9 @@ import {
 	requestLocale,
 	userLocale,
 } from "../i18n/i18n.js";
+import { escapeHtml, sendEmail } from "./email.js";
 import { ac, roles } from "./permissions.js";
+import { signUpGate } from "./sign-up-gate.js";
 import { teamMembers } from "./team-members.js";
 
 // Standalone pool/db instance (mirrors database/migrate.ts) so this config
@@ -35,30 +36,6 @@ import { teamMembers } from "./team-members.js";
 // outside of Nest's DI container.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool, { schema });
-
-// Constructed lazily so loading this config (e.g. the `better-auth` CLI) does
-// not require RESEND_API_KEY to be set until an email actually needs sending.
-let resend: Resend | undefined;
-const getResend = () => (resend ??= new Resend(process.env.RESEND_API_KEY));
-const emailFrom = process.env.EMAIL_FROM ?? "Platform Base <onboarding@resend.dev>";
-
-// resend.emails.send() never throws on API errors (e.g. invalid recipient,
-// unverified domain) — it resolves with { data: null, error }. Left
-// unchecked, that error is silently discarded instead of reaching Better
-// Auth's own error logging, so it's surfaced here as a thrown error instead.
-async function sendEmail(options: {
-	to: string;
-	subject: string;
-	html: string;
-}) {
-	const { error } = await getResend().emails.send({
-		from: emailFrom,
-		...options,
-	});
-	if (error) {
-		throw new Error(`Failed to send email via Resend: ${error.message}`);
-	}
-}
 
 // Users granted every admin permission regardless of their stored role, so
 // the first admin can be bootstrapped before anyone can call set-role.
@@ -81,13 +58,6 @@ const ROLE_LABELS = {
 	admin: m.admin_member_role_admin,
 	member: m.admin_member_role_member,
 } as const;
-
-const escapeHtml = (value: string) =>
-	value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;");
 
 // The organization plugin's sendInvitationEmail callback gets no Better Auth
 // context, only the request. The invitee's locale is looked up in a
@@ -168,6 +138,7 @@ export const authOptions: BetterAuthOptions = {
 		// origin, which the CSRF origin check would otherwise reject.
 		"https://appleid.apple.com",
 	],
+	databaseHooks: signUpGate,
 	user: {
 		additionalFields: {
 			// The user's preferred locale; source of truth for emails and
@@ -274,7 +245,9 @@ export const authOptions: BetterAuthOptions = {
 		organizationGuards,
 		organization({
 			teams: { enabled: true },
-			// Regular users get exactly one organization, created at onboarding.
+			// Organizations are created by superadmins (server-side, which the
+			// plugin exempts from this), never by members themselves.
+			allowUserToCreateOrganization: false,
 			organizationLimit: 1,
 			invitationExpiresIn: INVITATION_EXPIRY_DAYS * 24 * 60 * 60,
 			cancelPendingInvitationsOnReInvite: true,

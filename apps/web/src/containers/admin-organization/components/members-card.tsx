@@ -1,4 +1,8 @@
-import { Delete02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
+import {
+	Delete02Icon,
+	UserAdd01Icon,
+	UserSwitchIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
@@ -23,7 +27,9 @@ import {
 } from "@workspace/ui/components/table";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { FormDialog } from "@/components/admin/form-dialog";
 import { UserIdentity } from "@/components/admin/user-badges";
+import { RoleSelect } from "@/components/role-select";
 import type {
 	MemberRole,
 	OrganizationDetail,
@@ -31,8 +37,6 @@ import type {
 } from "@/lib/admin-api";
 import { formatDate } from "@/lib/format";
 import { useAdminOrganizationContext } from "../admin-organization.context";
-import { FormDialog } from "@/components/admin/form-dialog";
-import { RoleSelect } from "@/components/role-select";
 
 function AddMemberDialog() {
 	const { addMember } = useAdminOrganizationContext();
@@ -92,7 +96,7 @@ export function MembersCard({
 }: {
 	organization: OrganizationDetail;
 }) {
-	const { updateMemberRole, removeMember, isPending } =
+	const { updateMemberRole, removeMember, impersonate, isPending } =
 		useAdminOrganizationContext();
 	const [removing, setRemoving] = useState<OrganizationMember | null>(null);
 
@@ -121,7 +125,7 @@ export function MembersCard({
 								<TableHead className="hidden lg:table-cell">
 									{m.admin_column_joined()}
 								</TableHead>
-								<TableHead className="w-12">
+								<TableHead className="w-20">
 									<span className="sr-only">{m.admin_column_actions()}</span>
 								</TableHead>
 							</TableRow>
@@ -156,6 +160,17 @@ export function MembersCard({
 										{formatDate(member.createdAt)}
 									</TableCell>
 									<TableCell className="text-right">
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											aria-label={m.admin_member_impersonate_for({
+												name: member.user.name,
+											})}
+											disabled={isPending}
+											onClick={() => impersonate(member.user.id)}
+										>
+											<HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
+										</Button>
 										<Button
 											variant="ghost"
 											size="icon-sm"

@@ -24,6 +24,7 @@ vi.mock("@/lib/admin-api", () => ({
 		createOrganization: vi.fn(),
 		deleteOrganization: vi.fn(),
 		findUserByEmail: vi.fn(),
+		inviteClient: vi.fn(),
 	},
 }));
 
@@ -194,5 +195,95 @@ describe("AdminOrganizationsContainer", () => {
 		expect(
 			await screen.findByText("No organizations found"),
 		).toBeInTheDocument();
+	});
+	describe("inviting a client", () => {
+		async function fillInviteForm() {
+			await userEvent.click(
+				await screen.findByRole("button", { name: "Invite client" }),
+			);
+			const dialog = await screen.findByRole("dialog");
+			await userEvent.type(
+				within(dialog).getByLabelText("Client's email"),
+				"jane@globex.com",
+			);
+			await userEvent.type(
+				within(dialog).getByLabelText("Name"),
+				"Globex Corp",
+			);
+			return dialog;
+		}
+
+		it("creates the account and its organization, then opens the organization", async () => {
+			vi.mocked(adminApi.inviteClient).mockResolvedValue({
+				id: "inv-1",
+				organizationId: "org-7",
+				userId: "user-7",
+			});
+			renderOrganizations();
+
+			const dialog = await fillInviteForm();
+			expect(within(dialog).getByLabelText("Slug")).toHaveValue("globex-corp");
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Send invitation" }),
+			);
+
+			await waitFor(() =>
+				expect(adminApi.inviteClient).toHaveBeenCalledWith({
+					email: "jane@globex.com",
+					organizationName: "Globex Corp",
+					slug: "globex-corp",
+				}),
+			);
+			await waitFor(() =>
+				expect(navigate).toHaveBeenCalledWith({
+					to: "/admin/organizations/$organizationId",
+					params: { organizationId: "org-7" },
+				}),
+			);
+			expect(toast.success).toHaveBeenCalledWith(
+				"Invitation sent to jane@globex.com.",
+			);
+		});
+
+		it("shows a taken email under the email field", async () => {
+			vi.mocked(adminApi.inviteClient).mockRejectedValue(
+				new ApiError(409, "Email is already in use", "EMAIL_TAKEN"),
+			);
+			renderOrganizations();
+
+			const dialog = await fillInviteForm();
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Send invitation" }),
+			);
+
+			expect(
+				await within(dialog).findByText("This email already has an account."),
+			).toBeInTheDocument();
+			expect(within(dialog).getByLabelText("Client's email")).toHaveAttribute(
+				"aria-invalid",
+				"true",
+			);
+			expect(navigate).not.toHaveBeenCalled();
+		});
+
+		it("shows a taken slug under the slug field", async () => {
+			vi.mocked(adminApi.inviteClient).mockRejectedValue(
+				new ApiError(409, "Slug is already taken", "SLUG_TAKEN"),
+			);
+			renderOrganizations();
+
+			const dialog = await fillInviteForm();
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Send invitation" }),
+			);
+
+			expect(
+				await within(dialog).findByText("This slug is already in use."),
+			).toBeInTheDocument();
+			expect(within(dialog).getByLabelText("Slug")).toHaveAttribute(
+				"aria-invalid",
+				"true",
+			);
+		});
 	});
 });

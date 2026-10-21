@@ -16,7 +16,7 @@ import {
 export const MEMBER_ROLES = ["owner", "admin", "member"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export class ListOrganizationsQuery {
 	@ApiPropertyOptional({ description: "Matches name or slug" })

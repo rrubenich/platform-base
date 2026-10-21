@@ -32,6 +32,9 @@ const { db, close } = await createTestDatabase();
 
 const testAuth = betterAuth({
 	...authOptions,
+	// Open sign-up: these tests are about the admin organization API, not who may sign up
+	// (sign-up-gate.spec.ts covers that).
+	databaseHooks: {},
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	secret: "test-secret-that-is-long-enough-for-better-auth",
 });
@@ -158,6 +161,40 @@ describe("OrganizationsService", () => {
 			await expect(
 				service.create({ name: "X", slug: "x-org", ownerUserId: "nobody" }),
 			).rejects.toMatchObject({ status: 404 });
+		});
+	});
+
+	describe("owner setup", () => {
+		it("is null for an organization made for an existing user", async () => {
+			const org = await createOrganization();
+
+			expect(org.ownerSetup).toBeNull();
+		});
+
+		it("summarizes the owner's account invitation until it's accepted", async () => {
+			const org = await createOrganization();
+			const expiresAt = new Date(Date.now() + 60_000);
+			await db.insert(schema.accountInvitation).values({
+				id: `setup-${org.id}`,
+				email: "client@example.com",
+				userId: org.ownerId,
+				organizationId: org.id,
+				tokenHash: `hash-${org.id}`,
+				expiresAt,
+			});
+
+			expect((await service.get(org.id)).ownerSetup).toEqual({
+				id: `setup-${org.id}`,
+				email: "client@example.com",
+				expiresAt,
+				status: "pending",
+			});
+
+			await db
+				.update(schema.accountInvitation)
+				.set({ acceptedAt: new Date() })
+				.where(eq(schema.accountInvitation.id, `setup-${org.id}`));
+			expect((await service.get(org.id)).ownerSetup).toBeNull();
 		});
 	});
 

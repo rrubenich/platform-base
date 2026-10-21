@@ -10,6 +10,7 @@ import { createContext, type ReactNode, useContext } from "react";
 import { toast } from "sonner";
 import { adminApi, type OrganizationSummary } from "@/lib/admin-api";
 import { adminErrorMessage } from "@/lib/admin-errors";
+import { ApiError } from "@/lib/api";
 import type { OrganizationsSearch } from "./admin-organizations.search";
 
 export const ORGANIZATIONS_PAGE_SIZE = 20;
@@ -19,6 +20,15 @@ export type CreateOrganizationInput = {
 	slug: string;
 	ownerEmail: string;
 };
+
+export type InviteClientInput = {
+	email: string;
+	organizationName: string;
+	slug: string;
+};
+
+/** Why an invitation failed, attached to the field it's about when possible. */
+export type InviteClientError = { field?: "email" | "slug"; message: string };
 
 type AdminOrganizationsContextValue = {
 	search: OrganizationsSearch;
@@ -34,6 +44,9 @@ type AdminOrganizationsContextValue = {
 		input: CreateOrganizationInput,
 	) => Promise<string | null>;
 	isCreating: boolean;
+	/** Resolves to the failure, or null once invited. */
+	inviteClient: (input: InviteClientInput) => Promise<InviteClientError | null>;
+	isInviting: boolean;
 	deleteOrganization: (organization: OrganizationSummary) => void;
 };
 
@@ -78,6 +91,18 @@ export function AdminOrganizationsProvider({
 		},
 	});
 
+	const invite = useMutation({
+		mutationFn: (input: InviteClientInput) => adminApi.inviteClient(input),
+		onSuccess: async ({ organizationId }, { email }) => {
+			toast.success(m.admin_toast_client_invited({ email }));
+			await queryClient.invalidateQueries({ queryKey: ["admin"] });
+			await navigate({
+				to: "/admin/organizations/$organizationId",
+				params: { organizationId },
+			});
+		},
+	});
+
 	const remove = useMutation({
 		mutationFn: (organization: OrganizationSummary) =>
 			adminApi.deleteOrganization(organization.id),
@@ -111,6 +136,12 @@ export function AdminOrganizationsProvider({
 				(error: unknown) => adminErrorMessage(error, m.admin_action_error()),
 			),
 		isCreating: create.isPending,
+		inviteClient: (input) =>
+			invite.mutateAsync(input).then(
+				() => null,
+				(error: unknown) => inviteClientError(error),
+			),
+		isInviting: invite.isPending,
 		deleteOrganization: (organization) => remove.mutate(organization),
 	};
 
@@ -119,6 +150,16 @@ export function AdminOrganizationsProvider({
 			{children}
 		</AdminOrganizationsContext.Provider>
 	);
+}
+
+function inviteClientError(error: unknown): InviteClientError {
+	if (error instanceof ApiError && error.code === "EMAIL_TAKEN") {
+		return { field: "email", message: m.admin_error_email_taken() };
+	}
+	if (error instanceof ApiError && error.code === "SLUG_TAKEN") {
+		return { field: "slug", message: m.admin_error_slug_taken() };
+	}
+	return { message: adminErrorMessage(error, m.admin_action_error()) };
 }
 
 export function useAdminOrganizationsContext() {

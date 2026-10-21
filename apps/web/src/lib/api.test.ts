@@ -64,6 +64,24 @@ describe("apiJson", () => {
 		});
 	});
 
+	it("carries the error's code when the API sends one", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				jsonResponse(409, {
+					message: "Email is already in use",
+					code: "EMAIL_TAKEN",
+				}),
+			),
+		);
+
+		await expect(apiJson("/admin/account-invitations")).rejects.toMatchObject({
+			status: 409,
+			code: "EMAIL_TAKEN",
+			message: "Email is already in use",
+		});
+	});
+
 	it("falls back to the status when the error has no body", async () => {
 		vi.stubGlobal(
 			"fetch",

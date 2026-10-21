@@ -9,6 +9,10 @@ import {
 } from "@nestjs/common";
 import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import {
+	type OwnerSetup,
+	statusOf,
+} from "../../account-invitations/account-invitations.service.js";
 import { AUTH_INSTANCE } from "../../auth/auth.constants.js";
 import { DATABASE_CONNECTION } from "../../database/database.module.js";
 import * as schema from "../../database/schema.js";
@@ -20,7 +24,15 @@ import type {
 	UpdateOrganizationBody,
 } from "./organizations.dto.js";
 
-const { organization, member, invitation, team, teamMember, user } = schema;
+const {
+	organization,
+	member,
+	invitation,
+	team,
+	teamMember,
+	user,
+	accountInvitation,
+} = schema;
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -68,6 +80,8 @@ export type OrganizationDetail = Omit<
 		teamId: string | null;
 		expiresAt: Date;
 	}[];
+	/** The owner's account invitation while they haven't set up their login. */
+	ownerSetup: OwnerSetup | null;
 };
 
 /**
@@ -154,55 +168,62 @@ export class OrganizationsService {
 			.where(eq(organization.id, id));
 		if (!found) throw new NotFoundException("Organization not found");
 
-		const [members, teams, teamMembers, invitations] = await Promise.all([
-			this.db
-				.select({
-					id: member.id,
-					role: member.role,
-					createdAt: member.createdAt,
-					user: {
-						id: user.id,
-						name: user.name,
-						email: user.email,
-						image: user.image,
-					},
-				})
-				.from(member)
-				.innerJoin(user, eq(member.userId, user.id))
-				.where(eq(member.organizationId, id))
-				.orderBy(member.createdAt),
-			this.db
-				.select({
-					id: team.id,
-					name: team.name,
-					createdAt: team.createdAt,
-					memberCount: team.memberCount,
-				})
-				.from(team)
-				.where(eq(team.organizationId, id))
-				.orderBy(team.createdAt),
-			this.db
-				.select({ teamId: teamMember.teamId, userId: teamMember.userId })
-				.from(teamMember)
-				.innerJoin(team, eq(teamMember.teamId, team.id))
-				.where(eq(team.organizationId, id)),
-			this.db
-				.select({
-					id: invitation.id,
-					email: invitation.email,
-					role: invitation.role,
-					teamId: invitation.teamId,
-					expiresAt: invitation.expiresAt,
-				})
-				.from(invitation)
-				.where(
-					and(
-						eq(invitation.organizationId, id),
-						eq(invitation.status, "pending"),
-					),
-				)
-				.orderBy(invitation.createdAt),
-		]);
+		const [members, teams, teamMembers, invitations, [setup]] =
+			await Promise.all([
+				this.db
+					.select({
+						id: member.id,
+						role: member.role,
+						createdAt: member.createdAt,
+						user: {
+							id: user.id,
+							name: user.name,
+							email: user.email,
+							image: user.image,
+						},
+					})
+					.from(member)
+					.innerJoin(user, eq(member.userId, user.id))
+					.where(eq(member.organizationId, id))
+					.orderBy(member.createdAt),
+				this.db
+					.select({
+						id: team.id,
+						name: team.name,
+						createdAt: team.createdAt,
+						memberCount: team.memberCount,
+					})
+					.from(team)
+					.where(eq(team.organizationId, id))
+					.orderBy(team.createdAt),
+				this.db
+					.select({ teamId: teamMember.teamId, userId: teamMember.userId })
+					.from(teamMember)
+					.innerJoin(team, eq(teamMember.teamId, team.id))
+					.where(eq(team.organizationId, id)),
+				this.db
+					.select({
+						id: invitation.id,
+						email: invitation.email,
+						role: invitation.role,
+						teamId: invitation.teamId,
+						expiresAt: invitation.expiresAt,
+					})
+					.from(invitation)
+					.where(
+						and(
+							eq(invitation.organizationId, id),
+							eq(invitation.status, "pending"),
+						),
+					)
+					.orderBy(invitation.createdAt),
+				this.db
+					.select()
+					.from(accountInvitation)
+					.where(eq(accountInvitation.organizationId, id))
+					.orderBy(desc(accountInvitation.createdAt))
+					.limit(1),
+			]);
 
 		return {
 			...found,
@@ -214,6 +235,15 @@ export class OrganizationsService {
 					.map(({ userId }) => userId),
 			})),
 			invitations,
+			ownerSetup:
+				setup && !setup.acceptedAt
+					? {
+							id: setup.id,
+							email: setup.email,
+							expiresAt: setup.expiresAt,
+							status: statusOf(setup),
+						}
+					: null,
 		};
 	}
 

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminApi, type OrganizationDetail } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { AdminOrganizationContainer } from "./admin-organization.container";
 
 const navigate = vi.fn();
@@ -31,7 +32,13 @@ vi.mock("@/lib/admin-api", () => ({
 		deleteTeam: vi.fn(),
 		addTeamMember: vi.fn(),
 		removeTeamMember: vi.fn(),
+		resendAccountInvitation: vi.fn(),
+		cancelAccountInvitation: vi.fn(),
 	},
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+	authClient: { admin: { impersonateUser: vi.fn() } },
 }));
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -85,6 +92,14 @@ const ACME: OrganizationDetail = {
 			expiresAt: "2026-10-30T00:00:00.000Z",
 		},
 	],
+	ownerSetup: null,
+};
+
+const PENDING_SETUP = {
+	id: "setup-1",
+	email: "olga@example.com",
+	expiresAt: "2026-10-28T00:00:00.000Z",
+	status: "pending" as const,
 };
 
 function renderOrganization() {
@@ -318,5 +333,118 @@ describe("AdminOrganizationContainer", () => {
 				"This organization doesn't exist or couldn't be loaded.",
 			),
 		).toBeInTheDocument();
+	});
+	describe("owner setup", () => {
+		it("isn't shown once the owner has their login", async () => {
+			renderOrganization();
+
+			await screen.findAllByText("Olga Owner");
+			expect(screen.queryByText("Owner setup")).toBeNull();
+		});
+
+		it("shows a pending invitation with its expiry", async () => {
+			vi.mocked(adminApi.getOrganization).mockResolvedValue({
+				...ACME,
+				ownerSetup: PENDING_SETUP,
+			});
+
+			renderOrganization();
+
+			const card = (await screen.findByText("Owner setup")).closest(
+				"[data-slot=card]",
+			) as HTMLElement;
+			expect(within(card).getByText("Pending")).toBeInTheDocument();
+			expect(
+				within(card).getByText(/olga@example.com hasn't set up their login/),
+			).toBeInTheDocument();
+			expect(within(card).getByText(/Link expires/)).toBeInTheDocument();
+		});
+
+		it("marks an expired invitation", async () => {
+			vi.mocked(adminApi.getOrganization).mockResolvedValue({
+				...ACME,
+				ownerSetup: { ...PENDING_SETUP, status: "expired" },
+			});
+
+			renderOrganization();
+
+			expect(await screen.findByText("Expired")).toBeInTheDocument();
+			expect(screen.getByText(/Link expired/)).toBeInTheDocument();
+		});
+
+		it("resends the link", async () => {
+			vi.mocked(adminApi.getOrganization).mockResolvedValue({
+				...ACME,
+				ownerSetup: PENDING_SETUP,
+			});
+			vi.mocked(adminApi.resendAccountInvitation).mockResolvedValue(
+				PENDING_SETUP as never,
+			);
+			renderOrganization();
+
+			await userEvent.click(
+				await screen.findByRole("button", { name: "Resend link" }),
+			);
+
+			await waitFor(() =>
+				expect(adminApi.resendAccountInvitation).toHaveBeenCalledWith(
+					"setup-1",
+				),
+			);
+			await waitFor(() =>
+				expect(toast.success).toHaveBeenCalledWith("New link sent."),
+			);
+		});
+
+		it("cancels after confirming, deleting the organization", async () => {
+			vi.mocked(adminApi.getOrganization).mockResolvedValue({
+				...ACME,
+				ownerSetup: PENDING_SETUP,
+			});
+			vi.mocked(adminApi.cancelAccountInvitation).mockResolvedValue(
+				undefined as never,
+			);
+			renderOrganization();
+
+			await userEvent.click(
+				await screen.findByRole("button", { name: "Cancel invitation" }),
+			);
+			const dialog = await screen.findByRole("alertdialog", {
+				name: "Cancel this invitation?",
+			});
+			expect(
+				within(dialog).getByText(/deletes olga@example.com's account/),
+			).toBeInTheDocument();
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Cancel invitation" }),
+			);
+
+			await waitFor(() =>
+				expect(adminApi.cancelAccountInvitation).toHaveBeenCalledWith(
+					"setup-1",
+				),
+			);
+			await waitFor(() =>
+				expect(navigate).toHaveBeenCalledWith({ to: "/admin/organizations" }),
+			);
+		});
+	});
+
+	it("impersonates a member to work inside the organization", async () => {
+		vi.mocked(authClient.admin.impersonateUser).mockResolvedValue({
+			data: null,
+			error: { status: 403, message: "nope" },
+		} as never);
+		renderOrganization();
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Impersonate Olga Owner" }),
+		);
+
+		await waitFor(() =>
+			expect(authClient.admin.impersonateUser).toHaveBeenCalledWith({
+				userId: "user-1",
+			}),
+		);
 	});
 });

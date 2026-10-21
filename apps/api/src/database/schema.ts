@@ -198,6 +198,34 @@ export const teamMember = pgTable(
 	],
 );
 
+// Ours, not Better Auth's: a superadmin's invitation for someone to set up
+// the account created for them as the owner of a new organization. Only the
+// token's SHA-256 is stored; the token itself is only in the email.
+export const accountInvitation = pgTable(
+	"account_invitation",
+	{
+		id: text("id").primaryKey(),
+		email: text("email").notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		organizationId: text("organization_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		invitedById: text("invited_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		tokenHash: text("token_hash").notNull().unique(),
+		expiresAt: timestamp("expires_at").notNull(),
+		acceptedAt: timestamp("accepted_at"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		index("account_invitation_user_id_idx").on(table.userId),
+		index("account_invitation_organization_id_idx").on(table.organizationId),
+	],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),

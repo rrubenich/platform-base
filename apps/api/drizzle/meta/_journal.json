@@ -29,6 +29,13 @@
       "when": 1792506508873,
       "tag": "0003_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792602680771,
+      "tag": "0004_account_invitations",
+      "breakpoints": true
     }
   ]
 }
