@@ -148,16 +148,12 @@ export function SignInForm({
 								onSelect={onSocialSignIn}
 								disabled={isSubmitting}
 							/>
-							{/* Sign-up is by invitation: only offered to an organization
-							    invitee, who arrives here with their email. */}
-							{authSearch?.email && (
-								<FieldDescription className="text-center">
-									{m.sign_in_no_account()}{" "}
-									<Link to="/sign-up" search={authSearch}>
-										{m.sign_in_sign_up()}
-									</Link>
-								</FieldDescription>
-							)}
+							<FieldDescription className="text-center">
+								{m.sign_in_no_account()}{" "}
+								<Link to="/sign-up" search={authSearch}>
+									{m.sign_in_sign_up()}
+								</Link>
+							</FieldDescription>
 						</FieldGroup>
 					</form>
 				</CardContent>

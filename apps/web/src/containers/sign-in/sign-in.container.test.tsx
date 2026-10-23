@@ -169,10 +169,13 @@ describe("SignInContainer", () => {
 		});
 	});
 
-	it("doesn't offer sign-up outside an invitation", () => {
+	it("links to the sign-up page", () => {
 		render(<SignInContainer />);
 
-		expect(screen.queryByRole("link", { name: "Sign up" })).toBeNull();
+		expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+			"href",
+			"/sign-up",
+		);
 	});
 
 	describe.each([

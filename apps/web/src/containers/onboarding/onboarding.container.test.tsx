@@ -63,23 +63,78 @@ describe("OnboardingContainer", () => {
 		} as never);
 	});
 
-	it("doesn't offer to create an organization", async () => {
+	it("derives the slug from the name", async () => {
 		renderOnboarding();
 
-		await waitFor(() => expect(org.listUserInvitations).toHaveBeenCalled());
-		expect(
-			screen.queryByRole("button", { name: "Create organization" }),
-		).toBeNull();
+		await userEvent.type(
+			screen.getByLabelText(m.onboarding_name_label()),
+			"Acme Inc",
+		);
+
+		expect(screen.getByLabelText(m.onboarding_slug_label())).toHaveValue(
+			"acme-inc",
+		);
 	});
 
-	it("tells someone with no invitations to ask for one", async () => {
+	it("flags a taken slug and blocks submitting", async () => {
+		org.checkSlug.mockResolvedValue({
+			data: null,
+			error: { code: "SLUG_IS_TAKEN", status: 400, message: "taken" },
+		} as never);
 		renderOnboarding();
 
+		await userEvent.type(
+			screen.getByLabelText(m.onboarding_name_label()),
+			"Acme Inc",
+		);
+
+		expect(await screen.findByText(m.onboarding_slug_taken())).toBeVisible();
+		expect(org.checkSlug).toHaveBeenCalledWith({ slug: "acme-inc" });
 		expect(
-			await screen.findByText(
-				"You're not in an organization yet. Ask your organization's admin to invite you.",
-			),
-		).toBeVisible();
+			screen.getByRole("button", { name: m.onboarding_create_submit() }),
+		).toBeDisabled();
+	});
+
+	it("creates the organization and goes home", async () => {
+		org.create.mockResolvedValue({ data: { id: "o1" }, error: null } as never);
+		renderOnboarding();
+
+		await userEvent.type(
+			screen.getByLabelText(m.onboarding_name_label()),
+			"Acme Inc",
+		);
+		const submit = screen.getByRole("button", {
+			name: m.onboarding_create_submit(),
+		});
+		await waitFor(() => expect(submit).toBeEnabled());
+		await userEvent.click(submit);
+
+		expect(org.create).toHaveBeenCalledWith({
+			name: "Acme Inc",
+			slug: "acme-inc",
+		});
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/" }));
+	});
+
+	it("shows an API error inline", async () => {
+		org.create.mockResolvedValue({
+			data: null,
+			error: { status: 400, message: "Nope, sorry" },
+		} as never);
+		renderOnboarding();
+
+		await userEvent.type(
+			screen.getByLabelText(m.onboarding_name_label()),
+			"Acme Inc",
+		);
+		const submit = screen.getByRole("button", {
+			name: m.onboarding_create_submit(),
+		});
+		await waitFor(() => expect(submit).toBeEnabled());
+		await userEvent.click(submit);
+
+		expect(await screen.findByText("Nope, sorry")).toBeVisible();
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	describe("pending invitations", () => {
@@ -168,6 +223,9 @@ describe("OnboardingContainer", () => {
 		expect(
 			await screen.findByText(m.onboarding_invitations_error()),
 		).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: m.onboarding_create_submit() }),
+		).toBeInTheDocument();
 	});
 
 	it("explains the page and links to the security settings", () => {

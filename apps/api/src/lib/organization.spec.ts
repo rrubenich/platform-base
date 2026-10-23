@@ -42,9 +42,6 @@ const db = {
 
 const testAuth = betterAuth({
 	...authOptions,
-	// Open sign-up: these tests are about the organization plugin, not who may sign up
-	// (sign-up-gate.spec.ts covers that).
-	databaseHooks: {},
 	database: memoryAdapter(db),
 	secret: "test-secret-that-is-long-enough-for-better-auth",
 });
@@ -120,19 +117,12 @@ async function signUp(
 	return client;
 }
 
-type ServerApi = {
-	createOrganization: (input: {
-		body: { name: string; slug: string; userId: string };
-	}) => Promise<{ id: string }>;
-};
-
-/** Members can't create organizations: superadmins do it, server-side. */
 async function createOrg(client: Client, name: string, slug: string) {
-	const session = await client("/get-session");
-	const userId = (session.data as { user: { id: string } }).user.id;
-	return (testAuth.api as unknown as ServerApi).createOrganization({
-		body: { name, slug, userId },
-	});
+	const created = await client("/organization/create", { name, slug });
+	if (created.status !== 200) {
+		throw new Error(`Create failed: ${JSON.stringify(created.data)}`);
+	}
+	return created.data as { id: string };
 }
 
 describe("organization plugin", () => {
@@ -286,9 +276,15 @@ describe("organization plugin", () => {
 		const owner = await signUp("owner6@example.com");
 		await createOrg(owner, "Zeta", "zeta");
 
-		await expect(createOrg(owner, "Zeta 2", "zeta-2")).rejects.toMatchObject({
-			body: { code: "YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS" },
+		const second = await owner("/organization/create", {
+			name: "Zeta 2",
+			slug: "zeta-2",
 		});
+
+		expect(second.status).toBe(403);
+		expect(second.data.code).toBe(
+			"YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS",
+		);
 	});
 
 	it("lets an owner who is not in a team list its members", async () => {

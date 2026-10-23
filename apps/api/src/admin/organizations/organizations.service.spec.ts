@@ -32,9 +32,6 @@ const { db, close } = await createTestDatabase();
 
 const testAuth = betterAuth({
 	...authOptions,
-	// Open sign-up: these tests are about the admin organization API, not who may sign up
-	// (sign-up-gate.spec.ts covers that).
-	databaseHooks: {},
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	secret: "test-secret-that-is-long-enough-for-better-auth",
 });

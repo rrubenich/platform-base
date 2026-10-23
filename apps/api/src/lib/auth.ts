@@ -28,7 +28,6 @@ import {
 } from "../i18n/i18n.js";
 import { escapeHtml, sendEmail } from "./email.js";
 import { ac, roles } from "./permissions.js";
-import { signUpGate } from "./sign-up-gate.js";
 import { teamMembers } from "./team-members.js";
 
 // Standalone pool/db instance (mirrors database/migrate.ts) so this config
@@ -138,7 +137,6 @@ export const authOptions: BetterAuthOptions = {
 		// origin, which the CSRF origin check would otherwise reject.
 		"https://appleid.apple.com",
 	],
-	databaseHooks: signUpGate,
 	user: {
 		additionalFields: {
 			// The user's preferred locale; source of truth for emails and
@@ -245,9 +243,7 @@ export const authOptions: BetterAuthOptions = {
 		organizationGuards,
 		organization({
 			teams: { enabled: true },
-			// Organizations are created by superadmins (server-side, which the
-			// plugin exempts from this), never by members themselves.
-			allowUserToCreateOrganization: false,
+			// Regular users get exactly one organization, created at onboarding.
 			organizationLimit: 1,
 			invitationExpiresIn: INVITATION_EXPIRY_DAYS * 24 * 60 * 60,
 			cancelPendingInvitationsOnReInvite: true,

@@ -3,16 +3,19 @@ import { m } from "@workspace/i18n/messages";
 import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { CreateOrganizationForm } from "./components/create-organization-form";
 import { PendingInvitations } from "./components/pending-invitations";
 import { useOnboardingContext } from "./onboarding.context";
 
 export function OnboardingPage() {
 	const {
 		invitations,
-		invitationsLoading,
 		invitationsError,
 		acceptingId,
 		accept,
+		createOrganization,
+		setSlug,
+		slugTaken,
 		signingOut,
 		signOut,
 	} = useOnboardingContext();
@@ -40,15 +43,11 @@ export function OnboardingPage() {
 						onAccept={accept}
 					/>
 				)}
-				{!invitationsLoading &&
-					!invitationsError &&
-					invitations.length === 0 && (
-						<Alert>
-							<AlertDescription>
-								{m.onboarding_no_organization()}
-							</AlertDescription>
-						</Alert>
-					)}
+				<CreateOrganizationForm
+					onSubmit={createOrganization}
+					onSlugChange={setSlug}
+					slugTaken={slugTaken}
+				/>
 				<div className="flex flex-wrap items-center justify-center gap-2">
 					<Link
 						to="/settings/security"
