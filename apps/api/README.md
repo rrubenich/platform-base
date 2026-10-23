@@ -1,114 +1,139 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# `apps/api`
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The API, and the only public entry point to the backend. It handles authentication, organizations and teams, the admin console's API, and the gateway to the internal agents service (`apps/agents`).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Built with NestJS (Express adapter, ESM), Better Auth, Drizzle ORM on Neon Postgres, ioredis on Redis Cloud, Resend for email, and OpenTelemetry for traces.
 
-## Description
+## Running it
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+From this directory (or `bun run dev` at the repository root to start every app):
 
 ```bash
-$ bun install
+cp .env.example .env    # every variable is documented there
+bun run build           # once on a fresh checkout: dev preloads dist/lib/tracing.js
+bun run db:migrate      # apply migrations to DATABASE_URL
+bun run dev             # http://localhost:3000, Swagger UI at /docs
 ```
 
-## Compile and run the project
+Every route is under `/api`. In development the web app proxies `/api` to this server, so auth cookies stay first-party.
 
-```bash
-# development
-$ bun run start
+## Layout
 
-# watch mode
-$ bun run start:dev
-
-# production mode
-$ bun run start:prod
+```
+src/
+  main.ts                 # bootstrap: CORS, Better Auth handler, /api prefix, Swagger at /docs
+  app.module.ts           # registers every feature module
+  auth/                   # AuthGuard, @RequirePermissions, @CurrentSession, the Better Auth mount
+  lib/
+    auth.ts               # Better Auth configuration (providers, plugins, emails)
+    permissions.ts        # platform roles and the permissions they grant
+    team-members.ts       # Better Auth plugin: team membership endpoints
+    email.ts              # Resend wrapper
+    tracing.ts            # OpenTelemetry bootstrap, preloaded via NODE_OPTIONS
+  database/               # shared Drizzle connection (DATABASE_CONNECTION), schema.ts, migrate.ts
+  redis/                  # shared ioredis connection (REDIS_CONNECTION)
+  i18n/                   # request and user locale, translated auth errors
+  health/                 # Postgres, Redis and agents service checks
+  admin/                  # superadmin API: platform stats, organizations, members, teams
+  account-invitations/    # superadmin client invitations and the public accept flow
+  agents/                 # gateway to apps/agents: JWT signing, SSE proxy, generated client types
+  testing/                # in-memory Postgres (PGlite) with migrations applied
+drizzle/                  # generated SQL migrations
+test/                     # e2e suites (supertest)
 ```
 
-## Run tests
+Each feature is one Nest module folder with its controller, service and co-located `*.spec.ts`. [`AGENTS.md`](../../AGENTS.md) explains how to add one.
 
-```bash
-# unit tests
-$ bun run test
+## Authentication
 
-# e2e tests
-$ bun run test:e2e
+[Better Auth](https://www.better-auth.com) is mounted as raw Express middleware at `/api/auth/*`, before Nest's body parser, since it needs the unparsed request body. Its own OpenAPI schema is merged into the Swagger document, so `/docs` covers the auth endpoints too.
 
-# test coverage
-$ bun run test:cov
+Configured in `src/lib/auth.ts`:
+
+- Email/password with required email verification, and Google, Apple and Microsoft sign-in.
+- Magic links and two-factor authentication (TOTP, emailed codes, backup codes).
+- **Organization plugin** with teams: one organization per user, owner/admin/member roles, email invitations.
+- **Admin plugin** for superadmins: roles, bans, sessions, impersonation.
+- The user's `locale`, which emails and API errors follow (English and Brazilian Portuguese).
+
+### Protecting a route
+
+`AuthGuard` resolves the session. With `@RequirePermissions`, it also checks the caller's platform role against `src/lib/permissions.ts`:
+
+```ts
+@UseGuards(AuthGuard)
+@RequirePermissions({ organization: ["list"] })
+@Get()
+list(@CurrentSession() session: Session) { ... }
 ```
 
-## Deployment
+There are two kinds of roles:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- **Platform roles** (`user.role`): `user` or `admin`. `admin` grants the `/api/admin/*` permissions. `ADMIN_USER_IDS` grants every permission to the listed user ids, which bootstraps the first admin.
+- **Organization roles** (`member.role`): `owner`, `admin` or `member`, scoped to one tenant and enforced by the organization plugin.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Database
 
-```bash
-$ bun install -g @nestjs/mau
-$ mau deploy
+Drizzle ORM over `node-postgres`, on Neon. One connection is shared by every module. Inject it instead of creating a pool:
+
+```ts
+constructor(@Inject(DATABASE_CONNECTION) private readonly db: NodePgDatabase) {}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Redis works the same way, through `REDIS_CONNECTION`.
+
+To change the schema, edit `src/database/schema.ts`, run `bun run db:generate` to write a migration under `drizzle/`, then `bun run db:migrate`. Commit the migration with the schema change.
+
+## Agents gateway
+
+`src/agents/` forwards agent calls to `apps/agents`, which is only reachable over the private network. For each call, `AgentsService`:
+
+1. checks the caller (an active organization member, or the right permission for admin agents);
+2. signs a 60-second Ed25519 JWT with `AGENTS_JWT_PRIVATE_KEY` naming the user (`sub`), the organization (`org`) and the agent (`scope`);
+3. forwards the request. Chat replies are server-sent events, piped through unchanged by `event-stream.ts` and aborted when the browser disconnects.
+
+The client types in `agents-api.gen.ts` are generated from `apps/agents/openapi.json` with `bun run agents:types`. Don't edit that file by hand.
 
 ## Observability
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+`src/lib/tracing.ts` starts the OpenTelemetry SDK before Nest boots: `NODE_OPTIONS=--import` in the `dev` and `start*` scripts. It auto-instruments HTTP, Express, `pg` and `ioredis`, and exports traces and logs over OTLP (Grafana Cloud, configured with `OTEL_*`). Features need no tracing code of their own.
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+## Testing
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+```bash
+bun run test        # unit tests (Vitest), co-located *.spec.ts
+bun run test:watch
+bun run test:cov
+bun run test:e2e    # boots AppModule, hits it with supertest (test/*.e2e-spec.ts)
+```
 
-## Resources
+Tests that need real SQL use `createTestDatabase()` from `src/testing/`: an in-memory PGlite with the migrations applied, so they never touch Neon. Better Auth flows are tested end to end on it, or on Better Auth's memory adapter.
 
-Check out a few resources that may come in handy when working with NestJS:
+## Scripts
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+| Script | What it does |
+|---|---|
+| `dev` / `start:dev` | Watch mode with tracing |
+| `start:prod` | Run the built `dist/main` |
+| `build` | `nest build` |
+| `lint` / `format` | Biome |
+| `typecheck` | `tsc --noEmit` |
+| `db:generate` / `db:migrate` / `db:studio` | Drizzle migrations and Studio |
+| `agents:types` | Regenerate the agents client types from `apps/agents/openapi.json` |
 
-## Support
+## Environment
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+See `.env.example` for each variable and where to get it:
 
-## Stay in touch
+| Group | Variables |
+|---|---|
+| Server | `PORT`, `WEB_URL` |
+| Database | `DATABASE_URL` |
+| Auth | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_USER_IDS` |
+| Social sign-in | `GOOGLE_*`, `APPLE_*`, `MICROSOFT_*` |
+| Email | `RESEND_API_KEY`, `EMAIL_FROM` |
+| Redis | `REDIS_URL` |
+| Agents | `AGENTS_URL`, `AGENTS_JWT_PRIVATE_KEY` |
+| Tracing | `OTEL_*` |
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Every route and the permission it needs is listed in [`docs/routes.md`](../../docs/routes.md).
