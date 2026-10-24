@@ -10,11 +10,11 @@ import { Reflector } from "@nestjs/core";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Session } from "../lib/auth.js";
 import type { Permissions } from "../lib/permissions.js";
+import { AUTH_INSTANCE } from "./auth.constants.js";
 import {
 	type AuthenticatedRequest,
 	PERMISSIONS_KEY,
 } from "./auth.decorators.js";
-import { AUTH_INSTANCE } from "./auth.constants.js";
 
 // `auth` is typed against the generic `BetterAuthOptions` (see lib/auth.ts),
 // which erases plugin endpoints such as the admin plugin's

@@ -14,9 +14,9 @@ import {
 	TableHeader,
 	TableRow,
 } from "@workspace/ui/components/table";
+import { memberRoleLabel } from "@/components/role-select";
 import type { OrganizationDetail } from "@/lib/admin-api";
 import { formatDateTime } from "@/lib/format";
-import { memberRoleLabel } from "@/components/role-select";
 
 /** Pending invitations, read-only: members manage them inside the org. */
 export function InvitationsCard({

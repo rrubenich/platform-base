@@ -82,7 +82,9 @@ describe("WelcomeContainer", () => {
 		renderPage();
 
 		expect(
-			await screen.findByText("You've been invited to manage Acme on Platform Base."),
+			await screen.findByText(
+				"You've been invited to manage Acme on Platform Base.",
+			),
 		).toBeInTheDocument();
 		const email = screen.getByLabelText("Email");
 		expect(email).toHaveValue("jane@acme.com");

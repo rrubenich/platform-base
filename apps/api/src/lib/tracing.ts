@@ -6,8 +6,8 @@ import {
 	defaultResource,
 	resourceFromAttributes,
 } from "@opentelemetry/resources";
-import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 import {
 	ATTR_SERVICE_NAME,
 	ATTR_SERVICE_VERSION,

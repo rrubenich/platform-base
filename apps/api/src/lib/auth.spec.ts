@@ -46,7 +46,9 @@ describe("auth config", () => {
 			const url = await authorizationURL("apple");
 
 			expect(url.origin).toBe("https://appleid.apple.com");
-			expect(url.searchParams.get("client_id")).toBe("com.example.platform-base");
+			expect(url.searchParams.get("client_id")).toBe(
+				"com.example.platform-base",
+			);
 			expect(url.searchParams.get("response_mode")).toBe("form_post");
 			expect(url.searchParams.get("redirect_uri")).toBe(
 				"http://localhost:3000/api/auth/callback/apple",
