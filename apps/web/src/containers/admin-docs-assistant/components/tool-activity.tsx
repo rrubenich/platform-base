@@ -7,7 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { m } from "@workspace/i18n/messages";
 import { Badge } from "@workspace/ui/components/badge";
-import type { ToolCall } from "../admin-docs-assistant.context";
+import type { ToolCall } from "@/lib/use-agent-chat";
 
 function describe({ name, args }: ToolCall) {
 	const text = (key: string) => String(args[key] ?? "");

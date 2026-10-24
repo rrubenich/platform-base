@@ -16,9 +16,9 @@ import {
 	type OrganizationMember,
 	type OrgRole,
 } from "@/lib/organization";
+import { useLeaveOrganization } from "@/lib/use-leave-organization";
 import { useOrganizationAction } from "@/lib/use-organization-action";
 
-const ONLY_OWNER_CODE = "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER";
 const SLUG_DEBOUNCE_MS = 300;
 
 type OrganizationSettingsContextValue = {
@@ -82,13 +82,14 @@ export function OrganizationSettingsProvider({
 	const queryClient = useQueryClient();
 	const { submit, isPending } = useOrganizationAction();
 	const details = organization as OrganizationDetails | undefined;
+	const { leave, isPending: isLeaving } = useLeaveOrganization(details?.id);
 
 	const [slug, setSlug] = useState("");
 	const slugTaken = useSlugTaken(slug, details?.slug);
 
 	const ownMember = details?.members.find((member) => member.userId === userId);
 
-	/** Leaving or deleting ends the membership: refresh, then go to onboarding. */
+	/** Deleting ends the membership: refresh, then go to onboarding. */
 	async function exit() {
 		await queryClient.invalidateQueries({ queryKey: ORGANIZATION_QUERY_KEY });
 		await navigate({ to: "/onboarding" });
@@ -101,7 +102,7 @@ export function OrganizationSettingsProvider({
 		can,
 		otherMembers:
 			details?.members.filter((member) => member.userId !== userId) ?? [],
-		isPending,
+		isPending: isPending || isLeaving,
 		setSlug,
 		slugTaken,
 		save: (values) =>
@@ -147,20 +148,7 @@ export function OrganizationSettingsProvider({
 					fallback: m.org_settings_transfer_error(),
 				},
 			),
-		leave: async () => {
-			if (!details) return null;
-			const failure = await submit(
-				() => authClient.organization.leave({ organizationId: details.id }),
-				{
-					fallback: m.org_settings_leave_error(),
-					codeMessages: {
-						[ONLY_OWNER_CODE]: m.org_settings_leave_only_owner(),
-					},
-				},
-			);
-			if (!failure) await exit();
-			return failure;
-		},
+		leave,
 		deleteOrganization: async () => {
 			if (!details) return null;
 			const failure = await submit(
