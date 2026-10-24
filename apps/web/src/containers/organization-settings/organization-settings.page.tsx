@@ -1,11 +1,18 @@
+import { Navigate } from "@tanstack/react-router";
 import { m } from "@workspace/i18n/messages";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DangerZone } from "./components/danger-zone";
 import { GeneralCard } from "./components/general-card";
+import { RolesCard } from "./components/roles-card";
 import { useOrganizationSettingsContext } from "./organization-settings.context";
 
 export function OrganizationSettingsPage() {
-	const { organization, isLoading } = useOrganizationSettingsContext();
+	const { organization, isLoading, can } = useOrganizationSettingsContext();
+
+	// Settings are for owners and admins; members leave from the user menu.
+	if (!isLoading && organization && !can({ organization: ["update"] })) {
+		return <Navigate to="/" replace />;
+	}
 
 	return (
 		<div className="flex flex-col gap-6 p-4 md:p-6">
@@ -20,6 +27,7 @@ export function OrganizationSettingsPage() {
 			) : (
 				<>
 					<GeneralCard organization={organization} />
+					<RolesCard organization={organization} />
 					<DangerZone organization={organization} />
 				</>
 			)}

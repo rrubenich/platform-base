@@ -32,9 +32,21 @@ vi.mock("@/lib/auth-client", () => ({
 		organization: {
 			getFullOrganization: vi.fn(),
 			checkRolePermission: vi.fn(),
+			leave: vi.fn(),
 		},
 	},
 }));
+
+function setRole(role: string) {
+	vi.mocked(authClient.organization.getFullOrganization).mockResolvedValue({
+		data: {
+			id: "org-1",
+			name: "Acme Inc",
+			members: [{ userId: "user-1", role }],
+		},
+		error: null,
+	} as never);
+}
 
 function renderWorkspace() {
 	const queryClient = new QueryClient({
@@ -73,14 +85,11 @@ describe("WorkspaceContainer", () => {
 				user: { id: "user-1", name: "Jane Doe", email: "jane@example.com" },
 			},
 		} as never);
-		vi.mocked(authClient.organization.getFullOrganization).mockResolvedValue({
-			data: {
-				id: "org-1",
-				name: "Acme Inc",
-				members: [{ userId: "user-1", role: "admin" }],
-			},
-			error: null,
-		} as never);
+		// Owners and admins hold every permission the shell asks about.
+		vi.mocked(authClient.organization.checkRolePermission).mockImplementation(
+			({ role }: { role: string }) => role !== "member",
+		);
+		setRole("admin");
 	});
 
 	it("shows the organization name, the nav and the page body", async () => {
@@ -99,11 +108,53 @@ describe("WorkspaceContainer", () => {
 			"href",
 			"/teams",
 		);
+		expect(screen.getByRole("link", { name: /Assistant/ })).toHaveAttribute(
+			"href",
+			"/assistant",
+		);
 		expect(screen.getByRole("link", { name: /Settings/ })).toHaveAttribute(
 			"href",
 			"/settings/organization",
 		);
 		expect(screen.getByText("outlet content")).toBeInTheDocument();
+	});
+
+	it("doesn't offer Leave in an admin's user menu: they leave from Settings", async () => {
+		renderWorkspace();
+
+		await userEvent.click(await screen.findByText("jane@example.com"));
+
+		await screen.findByText("Security settings");
+		expect(
+			screen.queryByRole("menuitem", { name: /Leave organization/ }),
+		).toBeNull();
+	});
+
+	it("hides Settings from a plain member, who leaves from the user menu", async () => {
+		setRole("member");
+		vi.mocked(authClient.organization.leave).mockResolvedValue({
+			data: {},
+			error: null,
+		} as never);
+		renderWorkspace();
+
+		expect(await screen.findByText("Acme Inc")).toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /Settings/ })).toBeNull();
+
+		await userEvent.click(screen.getByText("jane@example.com"));
+		await userEvent.click(
+			await screen.findByRole("menuitem", { name: /Leave organization/ }),
+		);
+		await userEvent.click(await screen.findByRole("button", { name: "Leave" }));
+
+		await waitFor(() =>
+			expect(authClient.organization.leave).toHaveBeenCalledWith({
+				organizationId: "org-1",
+			}),
+		);
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: "/onboarding" }),
+		);
 	});
 
 	it("links to the security settings from the user menu", async () => {

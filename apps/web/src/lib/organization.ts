@@ -48,6 +48,7 @@ export type OrganizationTeam = {
 	name: string;
 	/** Kept in step by the plugin as members join and leave the team. */
 	memberCount?: number;
+	createdAt?: Date | string;
 };
 export type OrganizationDetails = {
 	id: string;

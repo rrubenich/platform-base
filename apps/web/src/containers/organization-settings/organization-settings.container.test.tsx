@@ -10,6 +10,7 @@ const navigate = vi.fn();
 
 vi.mock("@tanstack/react-router", () => ({
 	useNavigate: () => navigate,
+	Navigate: ({ to }: { to: string }) => <p>redirected to {to}</p>,
 }));
 
 vi.mock("@/containers/workspace/workspace.context", () => ({
@@ -166,13 +167,30 @@ describe("OrganizationSettingsContainer", () => {
 			expect(await screen.findByText("Slug in use")).toBeVisible();
 		});
 
-		it("is read-only without the update permission", () => {
+		it("sends a plain member home: settings are for owners and admins", () => {
 			setViewer("member", "user-2", []);
 			renderSettings();
 
-			expect(screen.getByLabelText("Organization name")).toBeDisabled();
-			expect(screen.getByLabelText("URL slug")).toBeDisabled();
-			expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+			expect(screen.getByText("redirected to /")).toBeInTheDocument();
+			expect(screen.queryByLabelText("Organization name")).toBeNull();
+		});
+	});
+
+	describe("roles", () => {
+		it("explains each role with how many members hold it", () => {
+			setViewer("owner", "user-1", OWNER);
+			renderSettings();
+
+			const card = screen.getByText("Roles").closest("[data-slot=card]");
+			const roles = within(card as HTMLElement);
+			const count = (role: string) =>
+				roles.getByText(role).querySelector("[data-slot=badge]")?.textContent;
+			expect(count("Owner")).toBe("1");
+			expect(count("Admin")).toBe("0");
+			expect(count("Member")).toBe("1");
+			expect(
+				roles.getByText(/plus transferring ownership and deleting/),
+			).toBeInTheDocument();
 		});
 	});
 

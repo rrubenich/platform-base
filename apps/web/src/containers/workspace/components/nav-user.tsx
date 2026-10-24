@@ -1,4 +1,5 @@
 import {
+	Logout03Icon,
 	LogoutIcon,
 	SecurityCheckIcon,
 	UnfoldMoreIcon,
@@ -47,9 +48,12 @@ function UserSummary({ user }: { user: WorkspaceUser }) {
 export function NavUser({
 	user,
 	onSignOut,
+	onLeaveOrganization,
 }: {
 	user: WorkspaceUser;
 	onSignOut: () => void;
+	/** Shown as "Leave organization" when given. */
+	onLeaveOrganization?: () => void;
 }) {
 	const { isMobile } = useSidebar();
 
@@ -88,6 +92,12 @@ export function NavUser({
 								<HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />
 								{m.org_security_settings()}
 							</DropdownMenuItem>
+							{onLeaveOrganization && (
+								<DropdownMenuItem onClick={onLeaveOrganization}>
+									<HugeiconsIcon icon={Logout03Icon} strokeWidth={2} />
+									{m.org_settings_leave_title()}
+								</DropdownMenuItem>
+							)}
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>

@@ -4,17 +4,24 @@ import { m } from "@workspace/i18n/messages";
 import { Button } from "@workspace/ui/components/button";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
-import { useAdminDocsAssistantContext } from "../admin-docs-assistant.context";
+import type { AgentChat } from "@/lib/use-agent-chat";
 
-export function Composer() {
-	const { send, stop, isStreaming } = useAdminDocsAssistantContext();
-	const [question, setQuestion] = useState("");
+/** The message box under an agent conversation; stops a streaming answer. */
+export function Composer({
+	chat,
+	placeholder,
+}: {
+	chat: AgentChat;
+	placeholder: string;
+}) {
+	const { send, stop, isStreaming } = chat;
+	const [message, setMessage] = useState("");
 
 	const submit = (event?: FormEvent) => {
 		event?.preventDefault();
-		if (!question.trim() || isStreaming) return;
-		send(question);
-		setQuestion("");
+		if (!message.trim() || isStreaming) return;
+		send(message);
+		setMessage("");
 	};
 
 	// Enter sends; Shift+Enter starts a new line.
@@ -35,11 +42,11 @@ export function Composer() {
 			className="mx-auto flex w-full max-w-3xl items-end gap-2"
 		>
 			<Textarea
-				value={question}
-				onChange={(event) => setQuestion(event.target.value)}
+				value={message}
+				onChange={(event) => setMessage(event.target.value)}
 				onKeyDown={onKeyDown}
-				placeholder={m.docs_assistant_placeholder()}
-				aria-label={m.docs_assistant_placeholder()}
+				placeholder={placeholder}
+				aria-label={placeholder}
 				rows={1}
 				className="max-h-48 min-h-11"
 			/>
@@ -49,7 +56,7 @@ export function Composer() {
 					size="icon-lg"
 					variant="secondary"
 					onClick={stop}
-					aria-label={m.docs_assistant_stop()}
+					aria-label={m.chat_stop()}
 				>
 					<HugeiconsIcon icon={StopIcon} strokeWidth={2} />
 				</Button>
@@ -57,8 +64,8 @@ export function Composer() {
 				<Button
 					type="submit"
 					size="icon-lg"
-					disabled={!question.trim()}
-					aria-label={m.docs_assistant_send()}
+					disabled={!message.trim()}
+					aria-label={m.chat_send()}
 				>
 					<HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} />
 				</Button>
