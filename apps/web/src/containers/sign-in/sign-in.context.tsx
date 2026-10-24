@@ -72,14 +72,14 @@ export function SignInProvider({ children }: { children: ReactNode }) {
 		// With 2FA on, no session exists yet: the server set a short-lived
 		// two-factor cookie and expects a code on /two-factor first.
 		if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
-			navigate({
+			void navigate({
 				to: "/two-factor",
 				...(redirect && { search: { redirect: target } }),
 			});
 			return;
 		}
 
-		navigate(redirectNavigation(target));
+		void navigate(redirectNavigation(target));
 	}
 
 	async function signInWithMagicLink(values: { email: string }) {

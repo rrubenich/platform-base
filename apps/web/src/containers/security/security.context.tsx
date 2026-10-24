@@ -48,7 +48,7 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (!isSessionPending && !session) navigate({ to: "/sign-in" });
+		if (!isSessionPending && !session) void navigate({ to: "/sign-in" });
 	}, [isSessionPending, session, navigate]);
 
 	const userId = session?.user.id;

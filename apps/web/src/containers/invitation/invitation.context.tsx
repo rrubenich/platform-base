@@ -154,7 +154,7 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 		await queryClient.invalidateQueries({ queryKey: ORGANIZATION_QUERY_KEY });
-		navigate({ to: "/" });
+		void navigate({ to: "/" });
 	}
 
 	async function reject() {
@@ -182,7 +182,7 @@ export function InvitationProvider({ children }: { children: ReactNode }) {
 			setActionError(authErrorMessage(error, m.invitation_sign_out_error()));
 			return;
 		}
-		navigate({ to: "/sign-in", search: authSearch });
+		void navigate({ to: "/sign-in", search: authSearch });
 	}
 
 	const value: InvitationContextValue = {

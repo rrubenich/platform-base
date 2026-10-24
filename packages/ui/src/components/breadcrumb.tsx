@@ -1,12 +1,12 @@
-import type * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { cn } from "cn";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	ArrowRight01Icon,
 	MoreHorizontalCircle01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
+import type * as React from "react";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
 	return (
@@ -64,7 +64,6 @@ function BreadcrumbLink({
 
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
 	return (
-		// biome-ignore lint/a11y/useFocusableInteractive lint/a11y/useSemanticElements: upstream shadcn; the current page is a disabled link by design
 		<span
 			data-slot="breadcrumb-page"
 			role="link"

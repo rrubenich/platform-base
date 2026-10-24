@@ -6,14 +6,12 @@
 	"scripts": {
 		"build": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide",
 		"dev": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --watch",
-		"lint": "biome lint .",
-		"format": "biome format --write .",
-		"test": "vitest run"
+		"test": "vp test run"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "2.29.0",
 		"typescript": "~6.0.2",
-		"vitest": "^4.1.2"
+		"vite-plus": "catalog:"
 	},
 	"exports": {
 		"./messages": {

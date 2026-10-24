@@ -38,5 +38,7 @@ export const roles = {
 export type Role = keyof typeof roles;
 
 export type Permissions = {
-	[Resource in keyof typeof statements]?: (typeof statements)[Resource][number][];
+	[
+		Resource in keyof typeof statements
+	]?: (typeof statements)[Resource][number][];
 };

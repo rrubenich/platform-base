@@ -92,19 +92,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 			if (error) throw new Error(error.message);
 			return (data ?? [])
 				.filter((invitation) => isPendingInvitation(invitation))
-				.map(
-					(invitation): PendingInvitation => ({
-						id: invitation.id,
-						organizationName: invitation.organizationName ?? "",
-						role: invitation.role,
-					}),
-				);
+				.map((invitation): PendingInvitation => ({
+					id: invitation.id,
+					organizationName: invitation.organizationName ?? "",
+					role: invitation.role,
+				}));
 		},
 	});
 
 	async function enter() {
 		await queryClient.invalidateQueries({ queryKey: ORGANIZATION_QUERY_KEY });
-		navigate({ to: "/" });
+		void navigate({ to: "/" });
 	}
 
 	async function createOrganization(values: { name: string; slug: string }) {
@@ -135,7 +133,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 			toast.error(authErrorMessage(error, m.onboarding_sign_out_error()));
 			return;
 		}
-		navigate({ to: "/sign-in" });
+		void navigate({ to: "/sign-in" });
 	}
 
 	const value: OnboardingContextValue = {

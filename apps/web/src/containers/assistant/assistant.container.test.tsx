@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AgentEvent, streamAgentChat } from "@/lib/agent-chat";
 import { ApiError } from "@/lib/api";
 import { AssistantContainer } from "./assistant.container";

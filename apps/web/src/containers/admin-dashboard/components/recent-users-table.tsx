@@ -56,7 +56,6 @@ export function RecentUsersTable() {
 						<TableBody>
 							{isRecentUsersLoading
 								? Array.from({ length: 4 }, (_, index) => (
-										// biome-ignore lint/suspicious/noArrayIndexKey: static placeholders
 										<TableRow key={index}>
 											<TableCell colSpan={3}>
 												<Skeleton className="h-8 w-full" />

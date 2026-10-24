@@ -82,6 +82,6 @@ for (const method of Object.keys(CONSOLE_SEVERITY) as Array<
 
 for (const signal of ["SIGTERM", "SIGINT"]) {
 	process.on(signal, () => {
-		sdk.shutdown().finally(() => process.exit(0));
+		void sdk.shutdown().finally(() => process.exit(0));
 	});
 }
