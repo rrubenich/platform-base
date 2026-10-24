@@ -34,7 +34,7 @@ export type SignInFormProps = Omit<React.ComponentProps<"div">, "children"> & {
 	magicLinkSent?: boolean;
 	/** Prefills the email and makes it read-only. */
 	lockedEmail?: string;
-	/** Kept on the link to sign-up. */
+	/** Kept on the links to sign-up and forgot-password. */
 	authSearch?: AuthSearch;
 };
 
@@ -101,13 +101,13 @@ export function SignInForm({
 										<FieldLabel htmlFor="password">
 											{m.sign_in_password_label()}
 										</FieldLabel>
-										<a
-											// biome-ignore lint/a11y/useValidAnchor: forgot-password page not built yet
-											href="#"
+										<Link
+											to="/forgot-password"
+											search={authSearch}
 											className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
 										>
 											{m.sign_in_forgot_password()}
-										</a>
+										</Link>
 									</div>
 									<Input
 										id="password"
