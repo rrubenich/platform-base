@@ -54,6 +54,7 @@ API-specific (from `apps/api`):
 bun run db:generate   # generate a Drizzle migration from schema.ts changes
 bun run db:migrate    # apply migrations to the Neon database in DATABASE_URL
 bun run db:studio     # open Drizzle Studio
+bun run db:seed       # mock accounts for every role (src/database/seed-data.ts); --reset recreates them
 bun run test:e2e      # supertest e2e suite (test/**/*.e2e-spec.ts)
 ```
 

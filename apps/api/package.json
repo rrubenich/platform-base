@@ -24,6 +24,7 @@
 		"test:e2e": "vitest run --config ./vitest.config.e2e.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun src/database/migrate.ts",
+		"db:seed": "bun src/database/seed.ts",
 		"db:studio": "drizzle-kit studio",
 		"agents:types": "openapi-typescript ../agents/openapi.json -o src/agents/agents-api.gen.ts && biome format --write src/agents/agents-api.gen.ts"
 	},

@@ -132,6 +132,23 @@ bun run dev                          # web, api, agents and the worker
 
 To make your first account a superadmin, put its user id in `ADMIN_USER_IDS` in `apps/api/.env`.
 
+To try every role without inviting people by hand, seed mock accounts (all with the password `Password123!`; `--reset` recreates them):
+
+```bash
+(cd apps/api && bun run db:seed)
+```
+
+| Email | What you see |
+|---|---|
+| `superadmin@example.com` | Superadmin: the `/admin` console |
+| `owner@example.com` | Owner of Acme Inc: the organization overview, settings, danger zone |
+| `admin@example.com` | Admin of Acme Inc: the overview and settings, no transfer or delete |
+| `member@example.com`, `member2@example.com` | Members of Acme Inc: the member home and the assistant, no settings |
+| `globex-owner@example.com`, `globex-member@example.com` | A second organization, Globex, to check nothing leaks between tenants |
+| `solo@example.com` | Signed up but in no organization: onboarding |
+
+Acme Inc also has an Engineering and a Design team and a pending invitation for `invitee@example.com`. The seed writes to whatever `DATABASE_URL` points at, so use a development branch.
+
 ## Commands
 
 Run from the repository root; Turborepo runs each one in every workspace.
