@@ -1,5 +1,5 @@
-import { createTestDatabase } from "../testing/test-database.js";
 import * as schema from "../database/schema.js";
+import { createTestDatabase } from "../testing/test-database.js";
 import { AdminService } from "./admin.service.js";
 
 const { db, close } = await createTestDatabase();

@@ -17,8 +17,8 @@ import {
 import { RequirePermissions } from "../auth/auth.decorators.js";
 import { AuthGuard } from "../auth/auth.guard.js";
 import {
-	type AdminStats,
 	AdminService,
+	type AdminStats,
 	type GrowthPoint,
 } from "./admin.service.js";
 

@@ -4,7 +4,8 @@ import { Resend } from "resend";
 // not require RESEND_API_KEY to be set until an email actually needs sending.
 let resend: Resend | undefined;
 const getResend = () => (resend ??= new Resend(process.env.RESEND_API_KEY));
-const emailFrom = process.env.EMAIL_FROM ?? "Platform Base <onboarding@resend.dev>";
+const emailFrom =
+	process.env.EMAIL_FROM ?? "Platform Base <onboarding@resend.dev>";
 
 // resend.emails.send() never throws on API errors (e.g. invalid recipient,
 // unverified domain) — it resolves with { data: null, error }. Left
