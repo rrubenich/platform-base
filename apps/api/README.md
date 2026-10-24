@@ -12,6 +12,7 @@ From this directory (or `bun run dev` at the repository root to start every app)
 cp .env.example .env    # every variable is documented there
 bun run build           # once on a fresh checkout: dev preloads dist/lib/tracing.js
 bun run db:migrate      # apply migrations to DATABASE_URL
+bun run db:seed         # optional: mock accounts for every role (not in production)
 bun run dev             # http://localhost:3000, Swagger UI at /docs
 ```
 
@@ -119,6 +120,7 @@ Tests that need real SQL use `createTestDatabase()` from `src/testing/`: an in-m
 | `lint` / `format` | Biome |
 | `typecheck` | `tsc --noEmit` |
 | `db:generate` / `db:migrate` / `db:studio` | Drizzle migrations and Studio |
+| `db:seed [--reset]` | Mock accounts and organizations for trying every role (`src/database/seed-data.ts`); refuses `NODE_ENV=production` |
 | `agents:types` | Regenerate the agents client types from `apps/agents/openapi.json` |
 
 ## Environment

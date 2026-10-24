@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
 	BadRequestException,
 	ConflictException,
@@ -16,6 +16,7 @@ import {
 import { AUTH_INSTANCE } from "../../auth/auth.constants.js";
 import { DATABASE_CONNECTION } from "../../database/database.module.js";
 import * as schema from "../../database/schema.js";
+import { teamMembershipKey } from "../../lib/team-membership-key.js";
 import type {
 	AddMemberBody,
 	CreateOrganizationBody,
@@ -84,17 +85,7 @@ export type OrganizationDetail = Omit<
 	ownerSetup: OwnerSetup | null;
 };
 
-/**
- * The organization plugin's team membership key: a hash of [teamId, userId]
- * behind a unique index. Mirrors `computeTeamMembershipKey` in
- * better-auth/dist/plugins/organization/adapter.mjs so rows written here are
- * indistinguishable from the plugin's own.
- */
-export function teamMembershipKey(teamId: string, userId: string): string {
-	return createHash("sha256")
-		.update(JSON.stringify([teamId, userId]))
-		.digest("base64url");
-}
+export { teamMembershipKey };
 
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, "\\$&");
 
