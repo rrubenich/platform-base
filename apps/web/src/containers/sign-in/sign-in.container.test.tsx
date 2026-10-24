@@ -359,4 +359,14 @@ describe("SignInContainer", () => {
 			"/sign-up?redirect=%2Finvitations%2Fi1&email=jane%40example.com",
 		);
 	});
+
+	it("links to the forgot-password page, keeping the redirect", () => {
+		search = { redirect: "/invitations/i1" };
+
+		render(<SignInContainer />);
+
+		expect(
+			screen.getByRole("link", { name: "Forgot your password?" }),
+		).toHaveAttribute("href", "/forgot-password?redirect=%2Finvitations%2Fi1");
+	});
 });

@@ -50,6 +50,12 @@ export function OnboardingPage() {
 				/>
 				<div className="flex flex-wrap items-center justify-center gap-2">
 					<Link
+						to="/settings/account"
+						className={buttonVariants({ variant: "ghost", size: "sm" })}
+					>
+						{m.org_account_settings()}
+					</Link>
+					<Link
 						to="/settings/security"
 						className={buttonVariants({ variant: "ghost", size: "sm" })}
 					>

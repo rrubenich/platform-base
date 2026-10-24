@@ -157,10 +157,13 @@ describe("WorkspaceContainer", () => {
 		);
 	});
 
-	it("links to the security settings from the user menu", async () => {
+	it("links to the account and security settings from the user menu", async () => {
 		renderWorkspace();
 
 		await userEvent.click(await screen.findByText("jane@example.com"));
+
+		const account = await screen.findByText("Account settings");
+		expect(account.closest("a")).toHaveAttribute("href", "/settings/account");
 
 		const label = await screen.findByText("Security settings");
 		expect(label.closest("a")).toHaveAttribute("href", "/settings/security");

@@ -363,3 +363,153 @@ describe("organization plugin", () => {
 		expect(Math.abs(lifetime - 7 * 24 * 60 * 60 * 1000)).toBeLessThan(5000);
 	});
 });
+
+describe("account", () => {
+	beforeEach(() => {
+		sent.length = 0;
+	});
+
+	it("refuses to delete the account of an organization's only owner, in their locale", async () => {
+		const owner = await signUp("sole@example.com", { locale: "pt-BR" });
+		await createOrg(owner, "Sole Co", "account-sole");
+
+		const deleted = await owner("/delete-user", { password });
+
+		expect(deleted.status).toBe(403);
+		expect(deleted.data.code).toBe("ONLY_OWNER_OF_AN_ORGANIZATION");
+		expect(deleted.data.message).toBe(
+			m.auth_error_ONLY_OWNER_OF_AN_ORGANIZATION({}, { locale: "pt-BR" }),
+		);
+		expect(db.user.some((user) => user.email === "sole@example.com")).toBe(
+			true,
+		);
+	});
+
+	it("deletes an owner's account once someone else also owns the organization", async () => {
+		const owner = await signUp("coowner@example.com");
+		const org = await createOrg(owner, "Co-owned", "account-coowned");
+		await signUp("other-owner@example.com");
+		db.member.push({
+			id: "member-other-owner",
+			organizationId: org.id,
+			userId: findUser("other-owner@example.com").id,
+			role: "owner",
+			createdAt: new Date(),
+		});
+
+		const deleted = await owner("/delete-user", { password });
+
+		expect(deleted.status).toBe(200);
+		expect(db.user.some((user) => user.email === "coowner@example.com")).toBe(
+			false,
+		);
+	});
+
+	it("deletes an account with its password, and only with the right one", async () => {
+		const client = await signUp("leaving@example.com");
+
+		const wrong = await client("/delete-user", { password: "not-it-at-all" });
+		expect(wrong.status).toBe(400);
+
+		const deleted = await client("/delete-user", { password });
+		expect(deleted.status).toBe(200);
+		expect(deleted.data.message).toBe("User deleted");
+		expect(db.user.some((user) => user.email === "leaving@example.com")).toBe(
+			false,
+		);
+	});
+
+	it("asks the current address to confirm an email change first", async () => {
+		const client = await signUp("old-address@example.com", {
+			locale: "pt-BR",
+		});
+		sent.length = 0;
+
+		const changed = await client("/change-email", {
+			newEmail: "new-address@example.com",
+			callbackURL: "http://localhost:5173/settings/account",
+		});
+
+		expect(changed.status).toBe(200);
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.to).toBe("old-address@example.com");
+		expect(sent[0]?.subject).toBe(
+			m.email_change_email_subject({}, { locale: "pt-BR" }),
+		);
+		expect(sent[0]?.html).toContain("new-address@example.com");
+		expect(findUser("old-address@example.com").email).toBe(
+			"old-address@example.com",
+		);
+	});
+});
+
+describe("password reset", () => {
+	beforeEach(() => {
+		sent.length = 0;
+	});
+
+	/** The reset token from the emailed link (…/reset-password/<token>?…). */
+	function emailedToken() {
+		const link = sent.at(-1)?.html.match(/reset-password\/([^?"]+)/);
+		if (!link?.[1]) throw new Error("No reset link was emailed");
+		return link[1];
+	}
+
+	it("emails a link back to the web app, then sets the new password", async () => {
+		await signUp("forgetful@example.com");
+		sent.length = 0;
+
+		const requested = await createClient()("/request-password-reset", {
+			email: "forgetful@example.com",
+			redirectTo: "http://localhost:5173/reset-password",
+		});
+		expect(requested.status).toBe(200);
+		expect(sent[0]?.to).toBe("forgetful@example.com");
+		expect(sent[0]?.html).toContain(
+			encodeURIComponent("http://localhost:5173/reset-password"),
+		);
+
+		const reset = await createClient()("/reset-password", {
+			newPassword: "a-brand-new-pass",
+			token: emailedToken(),
+		});
+		expect(reset.status).toBe(200);
+
+		const signIn = await createClient()("/sign-in/email", {
+			email: "forgetful@example.com",
+			password: "a-brand-new-pass",
+		});
+		expect(signIn.status).toBe(200);
+	});
+
+	it("answers the same for an unknown email, without sending anything", async () => {
+		const requested = await createClient()("/request-password-reset", {
+			email: "nobody-here@example.com",
+			redirectTo: "http://localhost:5173/reset-password",
+		});
+
+		expect(requested.status).toBe(200);
+		expect(sent).toHaveLength(0);
+	});
+
+	it("refuses a link that was already used", async () => {
+		await signUp("twice@example.com");
+		await createClient()("/request-password-reset", {
+			email: "twice@example.com",
+			redirectTo: "http://localhost:5173/reset-password",
+		});
+		const token = emailedToken();
+		await createClient()("/reset-password", {
+			newPassword: "first-new-pass",
+			token,
+		});
+
+		const again = await createClient()("/reset-password", {
+			newPassword: "second-new-pass",
+			token,
+		});
+
+		expect(again.status).toBe(400);
+		expect(again.data.code).toBe("INVALID_TOKEN");
+	});
+});

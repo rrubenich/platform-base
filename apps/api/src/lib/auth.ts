@@ -110,6 +110,42 @@ const organizationGuards = {
 					}
 				}),
 			},
+			{
+				// Deleting your account must not leave an organization without an
+				// owner: the only owner transfers ownership or deletes it first.
+				matcher: (context) => context.path === "/delete-user",
+				handler: createAuthMiddleware(async (ctx) => {
+					const session = await getSessionFromCtx(ctx);
+					if (!session) return;
+					const owned = (await ctx.context.adapter.findMany({
+						model: "member",
+						where: [
+							{ field: "userId", value: session.user.id },
+							{ field: "role", value: "owner" },
+						],
+					})) as { organizationId: string }[];
+					for (const { organizationId } of owned) {
+						const owners = await ctx.context.adapter.count({
+							model: "member",
+							where: [
+								{ field: "organizationId", value: organizationId },
+								{ field: "role", value: "owner" },
+							],
+						});
+						if (owners > 1) continue;
+						const locale = userLocale(session.user, ctx.headers);
+						throw new APIError("FORBIDDEN", {
+							code: "ONLY_OWNER_OF_AN_ORGANIZATION",
+							message: m.auth_error_ONLY_OWNER_OF_AN_ORGANIZATION(
+								{},
+								{ locale },
+							),
+							originalMessage:
+								"The only owner of an organization can't delete their account",
+						});
+					}
+				}),
+			},
 		],
 	},
 } satisfies BetterAuthPlugin;
@@ -149,6 +185,24 @@ export const authOptions: BetterAuthOptions = {
 				validator: { input: localeValidator },
 			},
 		},
+		// The current address confirms the change first; then the new one gets
+		// the usual verification email.
+		changeEmail: {
+			enabled: true,
+			sendChangeEmailConfirmation: async ({ user, newEmail, url }, request) => {
+				const locale = userLocale(user, request?.headers);
+				await sendEmail({
+					to: user.email,
+					subject: m.email_change_email_subject({}, { locale }),
+					html: `<a href="${url}">${escapeHtml(
+						m.email_change_email_link({ email: newEmail }, { locale }),
+					)}</a>`,
+				});
+			},
+		},
+		// With the password, or (sign-in without one) a recent session. The only
+		// owner of an organization is refused (organizationGuards).
+		deleteUser: { enabled: true },
 	},
 	emailAndPassword: {
 		enabled: true,

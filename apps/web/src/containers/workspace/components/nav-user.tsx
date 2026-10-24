@@ -3,6 +3,7 @@ import {
 	LogoutIcon,
 	SecurityCheckIcon,
 	UnfoldMoreIcon,
+	UserCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
@@ -88,6 +89,10 @@ export function NavUser({
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
+							<DropdownMenuItem render={<Link to="/settings/account" />}>
+								<HugeiconsIcon icon={UserCircleIcon} strokeWidth={2} />
+								{m.org_account_settings()}
+							</DropdownMenuItem>
 							<DropdownMenuItem render={<Link to="/settings/security" />}>
 								<HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />
 								{m.org_security_settings()}
