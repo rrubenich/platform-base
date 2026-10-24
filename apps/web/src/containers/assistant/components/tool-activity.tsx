@@ -11,7 +11,7 @@ export function ToolActivity({ tools }: { tools: ToolCall[] }) {
 		<ul className="flex flex-wrap gap-1.5" aria-label="tools">
 			{tools.map((tool, index) => (
 				// Calls can repeat; the list only grows, so the order is stable.
-				// biome-ignore lint/suspicious/noArrayIndexKey: append-only list
+				// oxlint-disable-next-line react/no-array-index-key -- append-only list
 				<li key={index}>
 					<Badge variant="secondary" className="gap-1 font-normal">
 						<HugeiconsIcon

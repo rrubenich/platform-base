@@ -10,23 +10,21 @@
 		"build": "nest build",
 		"deploy": "nest deploy",
 		"dev": "NODE_OPTIONS=--import=./dist/lib/tracing.js nest start --watch",
-		"format": "biome format --write .",
 		"start": "NODE_OPTIONS=--import=./dist/lib/tracing.js nest start",
 		"start:dev": "NODE_OPTIONS=--import=./dist/lib/tracing.js nest start --watch",
 		"start:debug": "NODE_OPTIONS=--import=./dist/lib/tracing.js nest start --debug --watch",
 		"start:prod": "NODE_OPTIONS=--import=./dist/lib/tracing.js node dist/main",
-		"lint": "biome lint .",
 		"typecheck": "tsc --noEmit -p tsconfig.build.json",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:cov": "vitest run --coverage",
-		"test:debug": "vitest --inspect-brk --no-file-parallelism",
-		"test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+		"test": "vp test run",
+		"test:watch": "vp test",
+		"test:cov": "vp test run --coverage",
+		"test:debug": "vp test --inspect-brk --no-file-parallelism",
+		"test:e2e": "vp test run --config ./vitest.config.e2e.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun src/database/migrate.ts",
 		"db:seed": "bun src/database/seed.ts",
 		"db:studio": "drizzle-kit studio",
-		"agents:types": "openapi-typescript ../agents/openapi.json -o src/agents/agents-api.gen.ts && biome format --write src/agents/agents-api.gen.ts"
+		"agents:types": "openapi-typescript ../agents/openapi.json -o src/agents/agents-api.gen.ts && vp fmt src/agents/agents-api.gen.ts"
 	},
 	"dependencies": {
 		"@better-auth/i18n": "^1.7.10",
@@ -68,13 +66,14 @@
 		"@types/node": "^24.0.0",
 		"@types/pg": "^8.23.1",
 		"@types/supertest": "^7.0.0",
-		"@vitest/coverage-v8": "^4.1.2",
+		"@vitest/coverage-v8": "catalog:",
 		"drizzle-kit": "^0.31.11",
 		"openapi-typescript": "^7.13.0",
 		"source-map-support": "^0.5.21",
 		"supertest": "^7.0.0",
 		"typescript": "^6.0.2",
 		"vite-tsconfig-paths": "^5.1.4",
-		"vitest": "^4.1.2"
+		"vitest": "catalog:",
+		"vite-plus": "catalog:"
 	}
 }

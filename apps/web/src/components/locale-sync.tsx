@@ -18,7 +18,7 @@ export function LocaleSync() {
 		if (!userId) return;
 
 		if (isLocale(userLocale)) {
-			if (userLocale !== getLocale()) setLocale(userLocale);
+			if (userLocale !== getLocale()) void setLocale(userLocale);
 			return;
 		}
 

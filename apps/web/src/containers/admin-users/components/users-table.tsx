@@ -71,7 +71,6 @@ export function UsersTable() {
 					<TableBody>
 						{isLoading
 							? Array.from({ length: 6 }, (_, index) => (
-									// biome-ignore lint/suspicious/noArrayIndexKey: static placeholders
 									<TableRow key={index}>
 										<TableCell colSpan={4}>
 											<Skeleton className="h-8 w-full" />

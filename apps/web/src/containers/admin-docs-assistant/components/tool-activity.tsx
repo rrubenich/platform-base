@@ -41,7 +41,7 @@ export function ToolActivity({ tools }: { tools: ToolCall[] }) {
 				const { icon, label } = describe(tool);
 				return (
 					// Calls can repeat with the same arguments; order is stable.
-					// biome-ignore lint/suspicious/noArrayIndexKey: append-only list
+					// oxlint-disable-next-line react/no-array-index-key -- append-only list
 					<li key={index}>
 						<Badge variant="secondary" className="gap-1 font-normal">
 							<HugeiconsIcon icon={icon} strokeWidth={2} className="size-3" />

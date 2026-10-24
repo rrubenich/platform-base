@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { m } from "@workspace/i18n/messages";
 import { Toaster } from "@workspace/ui/components/sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { authClient } from "@/lib/auth-client";
 import { OnboardingContainer } from "./onboarding.container";
 

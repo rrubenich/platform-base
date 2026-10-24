@@ -88,7 +88,7 @@ export function TwoFactorProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
-		navigate(redirectNavigation(redirect));
+		void navigate(redirectNavigation(redirect));
 	}
 
 	const value: TwoFactorContextValue = {

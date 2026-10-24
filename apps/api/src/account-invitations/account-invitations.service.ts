@@ -207,9 +207,9 @@ export class AccountInvitationsService {
 			);
 		}
 		await this.findUsable(token);
-		const password = await (await this.auth.$context).password.hash(
-			input.password,
-		);
+		const password = await (
+			await this.auth.$context
+		).password.hash(input.password);
 
 		const accepted = await this.db.transaction(async (tx) => {
 			const now = new Date();

@@ -1,6 +1,6 @@
-import { cn } from "cn";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Loading03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
 
 // HugeiconsIcon types strokeWidth as a number only, unlike a plain <svg>.
 function Spinner({

@@ -102,7 +102,7 @@ The client types in `agents-api.gen.ts` are generated from `apps/agents/openapi.
 ## Testing
 
 ```bash
-bun run test        # unit tests (Vitest), co-located *.spec.ts
+bun run test        # unit tests (Vitest, via `vp test`), co-located *.spec.ts
 bun run test:watch
 bun run test:cov
 bun run test:e2e    # boots AppModule, hits it with supertest (test/*.e2e-spec.ts)
@@ -117,7 +117,6 @@ Tests that need real SQL use `createTestDatabase()` from `src/testing/`: an in-m
 | `dev` / `start:dev` | Watch mode with tracing |
 | `start:prod` | Run the built `dist/main` |
 | `build` | `nest build` |
-| `lint` / `format` | Biome |
 | `typecheck` | `tsc --noEmit` |
 | `db:generate` / `db:migrate` / `db:studio` | Drizzle migrations and Studio |
 | `db:seed [--reset]` | Mock accounts and organizations for trying every role (`src/database/seed-data.ts`); refuses `NODE_ENV=production` |

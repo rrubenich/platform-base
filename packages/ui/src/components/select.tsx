@@ -1,15 +1,15 @@
 "use client";
 
-import type * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
-import { cn } from "cn";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	UnfoldMoreIcon,
 	Tick02Icon,
 	ArrowUp01Icon,
 	ArrowDown01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
+import type * as React from "react";
 
 const Select = SelectPrimitive.Root;
 

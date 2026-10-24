@@ -1,9 +1,8 @@
-import { useMemo } from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "cn";
-
 import { Label } from "@workspace/ui/components/label";
 import { Separator } from "@workspace/ui/components/separator";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "cn";
+import { useMemo } from "react";
 
 function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
 	return (
@@ -73,7 +72,6 @@ function Field({
 	...props
 }: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: a generic field wrapper, not every Field groups form controls that belong in a <fieldset>
 		<div
 			role="group"
 			data-slot="field"

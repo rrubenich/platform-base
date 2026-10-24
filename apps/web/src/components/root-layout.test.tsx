@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { toast } from "sonner";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { RootLayout } from "./root-layout";
 import { ThemeProvider } from "./theme-provider";
 

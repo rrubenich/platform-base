@@ -9,7 +9,7 @@ Instructions for agents (and humans) working in this repository.
 - **`apps/web`**: Vite + React 19 + TanStack Router (file-based) + TanStack Query + Tailwind CSS v4.
 - **`packages/ui`**: shared shadcn/ui component library (`@workspace/ui`), consumed by `apps/web`.
 - **`apps/agents`**: Python 3.13 + FastAPI AI agents service on LangChain + LangGraph, provider-agnostic (the model is configuration): agents are declared once and can delegate to each other, chat threads persist in Postgres, background jobs run on Redis via arq, traces and evals go to LangSmith. Internal: only `apps/api` calls it. Managed with **uv**; its `package.json` only wraps uv so Turborepo runs it.
-- **Lint/format**: Biome (tabs, double quotes, auto-organized imports). Run `bun run format` before committing.
+- **Toolchain**: [Vite+](https://viteplus.dev) (`vite-plus`, CLI `vp`): Vite for `apps/web`, Vitest for every TypeScript test suite, Oxlint for linting and Oxfmt for formatting (tabs, double quotes, sorted imports). Lint and format settings live in the root `vite.config.ts` and run once over the whole repository; `apps/agents` keeps Ruff. Run `bun run format` before committing.
 - **Package manager**: Bun. Use `bun add`/`bun remove`, not `npm`/`pnpm`/`yarn`.
 
 ### External services (all cloud-hosted — no local docker needed)
@@ -35,9 +35,10 @@ Run from the repo root (Turborepo fans these out to every workspace):
 bun install        # install all workspace deps
 bun run dev         # run api + web dev servers
 bun run build        # build all workspaces
-bun run lint          # biome lint, all workspaces
-bun run format         # biome format --write, all workspaces
-bun run test           # vitest run, all workspaces
+bun run lint          # vp lint (Oxlint) over the repo, then Ruff in apps/agents
+bun run format         # vp fmt (Oxfmt) over the repo, then Ruff in apps/agents
+bun run check          # vp check: format check + lint, then Ruff
+bun run test           # vp test (Vitest), all workspaces
 bun run typecheck       # tsc, all workspaces
 ```
 
@@ -45,7 +46,7 @@ Per-app, from `apps/api` or `apps/web`:
 
 ```bash
 bun run dev           # that app's dev server only
-bun run test:watch     # vitest in watch mode
+bun run test:watch     # vp test in watch mode
 ```
 
 API-specific (from `apps/api`):
@@ -58,7 +59,9 @@ bun run db:seed       # mock accounts for every role (src/database/seed-data.ts)
 bun run test:e2e      # supertest e2e suite (test/**/*.e2e-spec.ts)
 ```
 
-Before considering a change done: `bun run lint`, `bun run typecheck`, and `bun run test` should all pass in the affected workspace(s).
+Before considering a change done: `bun run check`, `bun run typecheck`, and `bun run test` should all pass.
+
+Lint suppressions use Oxlint's syntax with a reason: `// oxlint-disable-next-line react/no-array-index-key -- static placeholders`. Unused ones fail the lint. Rules are tuned in the root `vite.config.ts`; prefer fixing code over turning a rule off.
 
 ## Backend features (`apps/api`)
 
@@ -185,7 +188,7 @@ The `@/` alias inside `apps/web` resolves to `apps/web/src` (see `vite.config.ts
 
 ### 5. Testing
 
-Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.test.tsx` next to the component/container. Tests explicitly `import { describe, expect, it } from "vitest"` even though `globals: true` is set — follow that existing convention (see `src/containers/dashboard/dashboard.container.test.tsx`, `packages/ui/src/components/button.test.tsx`). Use `@testing-library/user-event` for interaction, not raw `fireEvent`.
+Vitest + Testing Library + jsdom (`apps/web/src/test/setup.ts`). Co-locate `*.test.tsx` next to the component/container. Tests explicitly `import { describe, expect, it } from "vite-plus/test"` (Vite+'s bundled Vitest; a lint rule rejects `vitest` imports) even though `globals: true` is set — follow that existing convention (see `src/containers/dashboard/dashboard.container.test.tsx`, `packages/ui/src/components/button.test.tsx`). Use `@testing-library/user-event` for interaction, not raw `fireEvent`.
 
 ### 6. Theming
 

@@ -5,19 +5,21 @@
 	"scripts": {
 		"build": "turbo build",
 		"dev": "turbo dev",
-		"lint": "turbo lint",
-		"format": "turbo format",
+		"lint": "vp lint && turbo lint",
+		"format": "vp fmt && turbo format",
 		"test": "turbo test",
-		"typecheck": "turbo typecheck"
+		"typecheck": "turbo typecheck",
+		"check": "vp check && turbo lint"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.15",
 		"turbo": "^2.11.7",
-		"typescript": "~6.0.2"
+		"typescript": "~6.0.2",
+		"vite": "catalog:",
+		"vite-plus": "catalog:"
 	},
 	"packageManager": "bun@1.4.2",
 	"engines": {
-		"node": ">=20.19.0"
+		"node": "^22.18.0 || ^24.11.0 || >=26.0.0"
 	},
 	"workspaces": [
 		"apps/*",
@@ -26,5 +28,15 @@
 	"dependencies": {
 		"@neon/config": "^1.9.2",
 		"@neon/env": "^1.6.3"
+	},
+	"catalog": {
+		"vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+		"vitest": "5.0.5",
+		"vite-plus": "1.4.0",
+		"@vitest/coverage-v8": "5.0.5"
+	},
+	"overrides": {
+		"vite": "catalog:",
+		"vitest": "catalog:"
 	}
 }

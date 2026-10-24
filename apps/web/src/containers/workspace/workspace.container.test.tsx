@@ -2,7 +2,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { m } from "@workspace/i18n/messages";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vite-plus/test";
 import { authClient } from "@/lib/auth-client";
 import { WorkspaceContainer } from "./workspace.container";
 

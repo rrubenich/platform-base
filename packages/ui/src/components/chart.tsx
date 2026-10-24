@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
 import { cn } from "cn";
+import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 import type { TooltipValueType } from "recharts";
 
@@ -91,7 +91,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
 	return (
 		<style
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: upstream shadcn; CSS variables built from the chart config, not user input
+			// oxlint-disable-next-line react/no-danger -- upstream shadcn; CSS variables built from the chart config, not user input
 			dangerouslySetInnerHTML={{
 				__html: Object.entries(THEMES)
 					.map(
@@ -206,7 +206,7 @@ function ChartTooltipContent({
 
 						return (
 							<div
-								// biome-ignore lint/suspicious/noArrayIndexKey: upstream shadcn; tooltip rows have no stable id
+								// oxlint-disable-next-line react/no-array-index-key -- upstream shadcn; tooltip rows have no stable id
 								key={index}
 								className={cn(
 									"flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
@@ -305,7 +305,7 @@ function ChartLegendContent({
 
 					return (
 						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: upstream shadcn; legend rows have no stable id
+							// oxlint-disable-next-line react/no-array-index-key -- upstream shadcn; legend rows have no stable id
 							key={index}
 							className={cn(
 								"flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground",

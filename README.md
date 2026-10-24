@@ -62,7 +62,7 @@ The product UI and the admin console.
 
 | Concern | Technology |
 |---|---|
-| Build and dev server | Vite |
+| Build and dev server | Vite (through Vite+) |
 | UI | React 19 |
 | Routing | TanStack Router (file-based) |
 | Data fetching | TanStack Query |
@@ -70,7 +70,7 @@ The product UI and the admin console.
 | Auth client | Better Auth |
 | Charts, Markdown | Recharts, react-markdown + remark-gfm |
 | Monitoring | Grafana Faro, Sentry |
-| Tests | Vitest, Testing Library, jsdom |
+| Tests | Vitest (through Vite+), Testing Library, jsdom |
 
 ### `apps/api`: API
 Authentication, organizations, the admin API, and the gateway to the agents service. Swagger UI is served at `/docs`.
@@ -109,7 +109,7 @@ Shared shadcn/ui components (Base UI, Tailwind CSS v4, Hugeicons) and the color 
 Messages for every app, compiled with Paraglide JS (English and Brazilian Portuguese).
 
 ### Tooling
-Turborepo and Bun workspaces, Biome for linting and formatting, TypeScript.
+Turborepo and Bun workspaces, TypeScript, and [Vite+](https://viteplus.dev) for the TypeScript toolchain: Vite, Vitest, Oxlint for linting and Oxfmt for formatting, configured in the root `vite.config.ts`.
 
 ## Getting started
 
@@ -151,13 +151,14 @@ Acme Inc also has an Engineering and a Design team and a pending invitation for 
 
 ## Commands
 
-Run from the repository root; Turborepo runs each one in every workspace.
+Run from the repository root. Turborepo runs builds, type checks and tests in every workspace; lint and format run once over the repository with Vite+ (and Ruff for apps/agents).
 
 ```bash
 bun run dev         # dev servers
 bun run build       # build everything
-bun run lint        # Biome (and Ruff for apps/agents)
-bun run format      # format everything
+bun run lint        # Oxlint (and Ruff for apps/agents)
+bun run format      # Oxfmt (and Ruff for apps/agents)
+bun run check       # format check + lint
 bun run typecheck   # tsc (and Pyright for apps/agents)
 bun run test        # every test suite
 ```

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApiError, apiGet, apiJson } from "./api";
 
 function jsonResponse(status: number, body: unknown) {

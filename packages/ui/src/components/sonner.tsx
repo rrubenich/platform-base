@@ -1,7 +1,5 @@
 "use client";
 
-import { Toaster as Sonner, type ToasterProps } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	CheckmarkCircle02Icon,
 	InformationCircleIcon,
@@ -9,6 +7,8 @@ import {
 	MultiplicationSignCircleIcon,
 	Loading03Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 // Apps own their theme state, so they pass `theme` in; "system" until then.
 const Toaster = ({ theme = "system", ...props }: ToasterProps) => {

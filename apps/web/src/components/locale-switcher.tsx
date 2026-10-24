@@ -23,7 +23,7 @@ export function LocaleSwitcher({ className }: { className?: string }) {
 		// The user record is the source of truth (emails, API errors), so
 		// update it before switching; setLocale then reloads the page.
 		if (session?.user) await authClient.updateUser({ locale });
-		setLocale(locale);
+		void setLocale(locale);
 	}
 
 	return (
